@@ -6,5 +6,6 @@ This is my own custom minecraft server.
 Written on 100% pure lisp.
 I hope you'll love it.
 
-Hah, anyway it has no features at this moment!
-It even has no code!
+JAMS depends on:
+ * usocket: networking
+ * flexi-streams: easy requests/responds deconding/encoding.
