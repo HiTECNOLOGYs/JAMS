@@ -30,19 +30,26 @@
 
 
 (define-condition Invalid-packet ()
-  ((message :initarg :message)
+  ((message :initarg :message
+            :reader message)
    (data :initarg :data
-         :initform nil)))
+         :initform nil
+         :reader data)))
+
+(defun read-prefixed-value (type data &optional (multiplier 1))
+  (let* ((type-size (get-type-size :short))
+         (length (compose-bytes (reverse (subseq data 0 type-size))))
+         (size (* multiplier length)))
+    (values (convert type (subseq (nthcdr type-size data) 0 size))
+            (nthcdr (+ type-size size) data))))
 
 (defun read-field (structure data)
   (destructuring-bind (name type) structure
     (declare (ignore name))
     (let ((size (get-type-size type)))
       (case size
-        (:prefix*2 (let ((final-size (* 2 (compose-bytes (list (second data)
-                                                               (first data))))))
-                     (values (convert type (subseq (cddr data) 0 final-size))
-                             (nthcdr final-size (cddr data)))))
+        (:prefix (read-prefixed-value type data))
+        (:prefix*2 (read-prefixed-value type data 2))
         (:metadata "Not supported")
         (otherwise (values (convert type (subseq data 0 size))
                            (nthcdr size data)))))))
@@ -50,7 +57,7 @@
 (defun parse-packet-data (structure data)
   (if (not structure)
       (if data
-          (error 'Invalid-packet "Invalid packet ID here! Hey!")
+          (error 'Invalid-packet "Invalid packet here! Hey!" :data data)
           nil)
       (multiple-value-bind (result new-data) (read-field (first structure) data)
         (cons result
@@ -63,7 +70,7 @@
            (packet-strcture (packet-definition-structure packet-definition))
            (packet-processor (packet-definition-processor packet-definition)))
       (if (not (and packet-strcture packet-processor))
-          (format t "Dunno what is this shit: ~A~%" packet)
+          (error 'Invalid-packet "Dunno what is this shit." :data packet)
           (apply packet-processor
                  (parse-packet-data packet-strcture packet-data))))))
 

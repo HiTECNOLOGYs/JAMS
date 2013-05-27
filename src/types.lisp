@@ -29,11 +29,12 @@
     (:long (bytes->number (reverse data)))
     (:float (decode-float32 (compose-bytes (reverse data))))
     (:double (decode-float64 (compose-bytes (reverse data))))
+    (:byte-array data)
     (:string (octets-to-string data
                                :external-format (make-external-format :utf-16
                                                                       :little-endian nil)))
     (:bool (= 1 (first data)))
-    (:metadata "Uable decode metadata yet =(")))
+    (:metadata "Unable decode metadata yet =(")))
 
 (defun get-type-size (type)
   (case type
@@ -43,6 +44,7 @@
     (:long 8)
     (:float 4)
     (:double 8)
+    (:byte-array :prefix)
     (:string :prefix*2)
     (:bool 1)
     (:metadata :metadata)))
@@ -70,6 +72,11 @@
       (:long (split-number-to-bytes data (get-type-size type)))
       (:float (split-number-to-bytes (encode-float32 data) (get-type-size type)))
       (:double (split-number-to-bytes (encode-float64 data) (get-type-size type)))
+      (:byte-array (concatenate 'vector
+                                (split-number-to-bytes (length data)
+                                                       (get-type-size :byte))
+                                (make-array (list (length data))
+                                            :initial-contents data)))
       (:string (concatenate 'vector
                             (split-number-to-bytes (length data)
                                                    (get-type-size :short))
