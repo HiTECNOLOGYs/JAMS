@@ -2,7 +2,7 @@
 
 (defun receive-data (stream)
   (loop for byte = (read-byte stream nil nil)
-        while byte
+        while (listen stream)
         collecting byte))
 
 (defun listener (socket)
@@ -14,11 +14,12 @@
             (when (and packet-id data)
               (write-sequence (encode-packet packet-id data)
                               stream)
-              (force-output stream)))))
+              (finish-output stream)))))
     (invalid-packet ()
       (write-sequence (encode-packet +kick-packet-id+
                                      '((:string "Something went terribly wrong. We're working on it.")))
-                      (socket-stream socket)))))
+                      (socket-stream socket))
+      (finish-output (socket-stream socket)))))
 
 (defun server (port)
   (with-socket-listener (socket "127.0.0.1" port :element-type '(unsigned-byte 8) :reuse-address t)
