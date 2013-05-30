@@ -62,6 +62,33 @@
                  (ldb (byte 8 (* 8 shift)) number))
         finally (return result))))
 
+(defun encode-string-raw (string)
+  (string-to-octets string
+                    :external-format (make-external-format :utf-16
+                                                           :little-endian nil)))
+
+(defun encode-string-size (string)
+  (split-number-to-bytes (length string)
+                         (get-type-size :short)))
+
+(defun encode-string (string)
+  (concatenate 'vector
+               (encode-string-size string)
+               (encode-string-raw string)))
+
+(defun encode-byte-array-raw (array)
+  (make-array (list (length array))
+              :initial-contents array))
+
+(defun encode-byte-array-size (array)
+  (split-number-to-bytes (length array)
+                         (get-type-size :byte)))
+
+(defun encode-byte-array (array)
+  (concatenate 'vector
+               (encode-byte-array-size array)
+               (encode-byte-array-raw array)))
+
 (defun encode-value (value)
   "`Value' MUST be valid."
   (destructuring-bind (type data) value
@@ -72,17 +99,8 @@
       (:long (split-number-to-bytes data (get-type-size type)))
       (:float (split-number-to-bytes (encode-float32 data) (get-type-size type)))
       (:double (split-number-to-bytes (encode-float64 data) (get-type-size type)))
-      (:byte-array (concatenate 'vector
-                                (split-number-to-bytes (length data)
-                                                       (get-type-size :byte))
-                                (make-array (list (length data))
-                                            :initial-contents data)))
-      (:string (concatenate 'vector
-                            (split-number-to-bytes (length data)
-                                                   (get-type-size :short))
-                            (string-to-octets data
-                                              :external-format (make-external-format :utf-16
-                                                                                     :little-endian nil))))
+      (:byte-array (encode-byte-array data))
+      (:string (encode-string data))
       (:bool (if (= 0 data)
                  #(0) #(1)))
       (:metadata #(0)))))
