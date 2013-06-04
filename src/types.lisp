@@ -54,13 +54,15 @@
       #(0)
       (loop
         for shift from 0 upto (1- size)
-        for vector-position from (1- size) downto 0
         with result = (make-array (list size) 
                                   :initial-element 0
+                                  :fill-pointer 0
                                   :element-type '(unsigned-byte 8))
-        do (setf (elt result vector-position)
-                 (ldb (byte 8 (* 8 shift)) number))
-        finally (return result))))
+        do (vector-push-extend (ldb (byte 8 (* 8 shift)) number)
+                               result)
+        finally (progn (setf (fill-pointer result)
+                             (1- size))
+                       (return result)))))
 
 (defun encode-string-raw (string)
   (string-to-octets string
