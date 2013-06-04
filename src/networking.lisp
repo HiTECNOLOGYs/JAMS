@@ -39,20 +39,22 @@
   (let ((stream (socket-stream socket)))
     (handler-case
         (let ((responses (process-packet (receive-packet stream))))
+          (format t "Responding with: ~A~%" responses)
+          (force-output)
           (if (not (listp responses))
               (progn (write-sequence responses
                                      stream)
                      (finish-output stream))
-              (dolist (response responses)
-                (when response
-                  (write-sequence response
-                                  stream)
-                  (finish-output stream)))))
+              (progn (dolist (response responses)
+                       (when response
+                         (write-sequence response
+                                         stream)))
+                     (finish-output stream))))
       (invalid-packet ()
         (write-sequence (encode-packet +kick-packet-id+
                                        '((:string "Suck my dick.")))
                         socket)
-        (finish-output socket)))))
+        (finish-output stream)))))
 
 (defun server (port)
   (with-socket-listener (socket *wildcard-host* port :element-type '(unsigned-byte 8) :reuse-address t)
