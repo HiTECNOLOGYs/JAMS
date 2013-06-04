@@ -16,14 +16,8 @@
           nick
           address
           port)
-  (encode-packet 'login-request
-                 '((:integer 228)
-                   (:string "default")
-                   (:byte 0)
-                   (:byte 0)
-                   (:byte 1)
-                   (:byte 0)
-                   (:byte 16))))
+  (encode-packet 'kick
+                 '((:string "SASAI LALKA"))))
 
 (defpacket (ping #xFE) ((:byte magic))
   (declare (ignore magic))
