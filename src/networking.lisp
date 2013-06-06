@@ -51,32 +51,48 @@
 (defun process-client (socket connection)
   nil)
 
-(defun connection-drop-handler (condition)
-  (let* ((socket (socket condition))
-         (message (message condition)))
-    (format t "~A~%" message)
-    (force-output)
-    (remove-connection socket)
-    (remove-socket socket)))
-
 (let ((connection-id-counter 0))
   (defun establish-connection (socket)
     (let ((connection (make-connection :id (incf connection-id-counter))))
       (add-socket socket)
       (add-connection socket connection))))
 
+(defun drop-connection (socket)
+  (remove-socket socket)
+  (remove-connection socket))
+
+(defun drop-connection-handler (condition)
+  (let ((socket (socket condition))
+        (message (message condition)))
+    (princ message)
+    (terpri)
+    (force-output)
+    (drop-connection socket)))
+
+(defun invalid-packet-handler (condition)
+  (let ((socket (socket condition))
+        (message (message condition))
+        (data (data condition)))
+    (format t "~A: ~A~%" message data)
+    (force-output)
+    (drop-connection socket)))
+
 (defun process-connection (socket)
-  (task-handler-bind
-      ((drop-connection #'connection-drop-handler)
-       (end-of-file     #'connection-drop-handler))
-    (let ((connection (get-connection socket)))
-      (let ((new-status (funcall (get-connection-status-processor (connection-status connection))
-                                 socket
-                                 connection)))
-        (when new-status
-          (setf (connection-status connection)
-                new-status)))
-      t)))
+  (handler-case
+      (let ((connection (get-connection socket)))
+        (let ((new-status (funcall (get-connection-status-processor (connection-status connection))
+                                   socket
+                                   connection)))
+          (when new-status
+            (setf (connection-status connection)
+                  new-status)))
+        t)
+    (end-of-file (condition)
+      (drop-connection-handler condition))
+    (drop-connection (condition)
+      (drop-connection-handler condition))
+    (invalid-packet (condition)
+      (invalid-packet-handler condition))))
 
 (defun server (port)
   (setf *kernel* (make-kernel +max-number-of-threads+))
@@ -85,7 +101,6 @@
     (unwind-protect
          (loop
             (dolist (ready-socket (wait-for-input (get-sockets) :ready-only t))
-              (print ready-socket)
               (if (eql ready-socket socket)
                   (add-to-queue #'establish-connection (socket-accept ready-socket))
                   (add-to-queue #'process-connection ready-socket)))
