@@ -2,12 +2,20 @@
 
 (defparameter *packets* nil)
 
-(define-condition Invalid-packet ()
+(define-condition Invalid-packet (error)
   ((message :initarg :message
             :reader message)
    (data :initarg :data
          :initform nil
-         :reader data)))
+         :reader data)
+   (connection-id :initarg :connection-id
+                  :reader target-id)))
+
+(define-condition Drop-connection ()
+  ((message :initarg :message
+            :reader message)
+   (connection-id :initarg :connection-id
+                  :reader target-id)))
 
 (defun make-packet-definition (id structure processor)
   (list id structure processor))
@@ -25,11 +33,13 @@
   "Structure format (name-for-binding type)."
   `(progn
      ,(when body
-        `(defun ,name ,(mapcar #'second structure)
+        `(defun ,name ,(append '(connection-id stream)
+                               (mapcar #'second structure))
+           (declare (ignorable connection-id stream))
            ,@body))
      (pushnew (make-packet-definition ,id
-                                     ',(mapcar #'first structure)
-                                     ',name)
+                                      ',(mapcar #'first structure)
+                                      ',name)
               *packets*
               :key #'first
               :test #'=)))
@@ -75,3 +85,12 @@
                  (reduce (curry #'concatenate 'vector)
                          data
                          :key #'encode-value))))
+
+(defun process-packet (connection-id stream packet)
+  (destructuring-bind (packet-id . packet-data) packet
+    (let ((packet-processor (packet-definition-processor (get-packet-definition packet-id))))
+      (if packet-processor
+        (apply packet-processor connection-id stream packet-data)
+        (error 'Invalid-packet
+               :message "Dunno what is this shit."
+               :data packet)))))

@@ -7,3 +7,4 @@ Depends on:
 * usocket: networking
 * flexi-streams: easy requests/responds deconding/encoding.
 * ieee-floats: floats/double decoding/encoding
+* lparallel: threading

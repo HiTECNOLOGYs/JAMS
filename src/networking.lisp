@@ -1,5 +1,8 @@
 (in-package :jams)
 
+(define-constant +master-socket-id+ 0)
+
+
 (defun receive-bytes (stream byte-count)
   (loop repeat byte-count
         collecting (read-byte stream)))
@@ -26,37 +29,69 @@
           (loop for type in (packet-definition-structure (get-packet-definition packet-id))
                 collecting (receive-field stream type)))))
 
-(defun process-packet (packet)
-  (destructuring-bind (packet-id . packet-data) packet
-    (let ((packet-processor (packet-definition-processor (get-packet-definition packet-id))))
-      (if packet-processor
-        (apply packet-processor packet-data)
-        (error 'Invalid-packet
-               :message "Dunno what is this shit."
-               :data packet)))))
+(defun receive-and-process-packet (connection-id stream)
+  (process-packet connection-id stream (receive-packet stream)))
 
-(defun listener (socket)
-  (let ((stream (socket-stream socket)))
-    (handler-case
-        (let ((responses (process-packet (receive-packet stream))))
-          (format t "Responding with: ~A~%" responses)
-          (force-output)
-          (if (not (listp responses))
-              (progn (write-sequence responses
-                                     stream)
-                     (finish-output stream))
-              (progn (dolist (response responses)
-                       (when response
-                         (write-sequence response
-                                         stream)))
-                     (finish-output stream))))
-      (invalid-packet ()
-        (write-sequence (encode-packet +kick-packet-id+
-                                       '((:string "Suck my dick.")))
-                        socket)
-        (finish-output stream)))))
+(defun process-new-client (connection-id stream connection)
+  (format t "Connecting client with ID: ~D~%" (connection-id connection))
+  (let ((responses (receive-and-process-packet connection-id stream)))
+    (if (listp responses)
+        (dolist (response responses)
+          (write-sequence response stream))
+        (write-sequence responses stream))
+    (finish-output stream))
+  nil)
+
+(defun send-data-to-client (connection-id stream connection)
+  nil)
+
+(defun process-client (connection-id stream connection)
+  nil)
+
+(defun connection-drop-handler (condition)
+  (let* ((id (target-id condition))
+         (socket (get-socket-by-id id))
+         (message (message condition)))
+    (format t "~A~%" message)
+    (force-output)
+    (remove-connection socket)
+    (remove-socket socket id)))
+
+(let ((connection-id-counter 0))
+  (defun establish-connection (socket)
+    (task-handler-bind
+        ((drop-connection #'connection-drop-handler)
+         (end-of-file     #'connection-drop-handler))
+      (let ((connection (make-connection :id (incf connection-id-counter))))
+        (add-socket socket connection-id-counter)
+        (add-connection socket connection)
+        (process-connection socket)))))
+
+(defun process-connection (socket)
+  (task-handler-bind
+      ((drop-connection #'connection-drop-handler)
+       (end-of-file     #'connection-drop-handler))
+    (let ((connection (get-connection socket))
+          (stream (socket-stream socket)))
+      (let ((new-status (funcall (get-connection-status-processor (connection-status connection))
+                                 (connection-id connection)
+                                 stream
+                                 connection)))
+        (when new-status
+          (setf (connection-status connection)
+                new-status)))
+      t)))
 
 (defun server (port)
+  (setf *kernel* (make-kernel +max-number-of-threads+))
   (with-socket-listener (socket *wildcard-host* port :element-type '(unsigned-byte 8) :reuse-address t)
-    (loop (with-connected-socket (connected-socket (socket-accept socket))
-            (listener connected-socket)))))
+    (add-socket socket 0)
+    (unwind-protect
+         (loop
+            (dolist (ready-socket (wait-for-input (get-sockets) :ready-only t))
+              (if (eql ready-socket socket)
+                  (add-to-queue #'establish-connection (socket-accept ready-socket))
+                  (add-to-queue #'process-connection (get-connection ready-socket))))
+            (print (run-queue)))
+      (remove-socket socket 0)))
+  (values))
