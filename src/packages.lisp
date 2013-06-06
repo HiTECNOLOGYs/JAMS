@@ -2,4 +2,6 @@
   (:use :cl
         :flexi-streams
         :usocket
-        :ieee-floats))
+        :ieee-floats
+        :lparallel
+        :lparallel.queue))

@@ -9,7 +9,8 @@
   :description "Simple Minecraft server."
   :defsystem-depends-on (flexi-streams
                          usocket
-                         ieee-floats)
+                         ieee-floats
+                         lparallel)
   :components ((:module :src
                         :serial t
                         :components ((:file "packages")
@@ -17,5 +18,7 @@
                                      (:file "types")
                                      (:file "packets")
                                      (:file "protocol")
+                                     (:file "threading")
+                                     (:file "connections")
                                      (:file "networking")
                                      (:file "main")))))

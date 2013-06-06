@@ -61,8 +61,8 @@
         do (vector-push-extend (ldb (byte 8 (* 8 shift)) number)
                                result)
         finally (progn (setf (fill-pointer result)
-                             (1- size))
-                       (return result)))))
+                             size)
+                       (return (reverse result))))))
 
 (defun encode-string-raw (string)
   (string-to-octets string

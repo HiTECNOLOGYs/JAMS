@@ -16,12 +16,19 @@
           nick
           address
           port)
-  (encode-packet 'kick
-                 '((:string "SASAI LALKA"))))
+  (write-sequence (encode-packet 'kick
+                                 '((:string "SASAI LALKA")))
+                  (socket-stream socket)))
+
+(defpacket (encryption-key-request #xFD) ())
 
 (defpacket (ping #xFE) ((:byte magic))
   (declare (ignore magic))
-  (packet-attach-id 'kick
-                    (encode-ping-response "61" "1.5.2" "MAMKU EBAL" "8" "32")))
+  (write-sequence (packet-attach-id 'kick
+                                    (encode-ping-response "61" "1.5.2" "MAMKU EBAL" "8" "32"))
+                  (socket-stream socket))
+  (error 'drop-connection
+         :socket socket
+         :message "Kicking client after ping request."))
 
 (defpacket (kick #xFF) ((:string message)))
