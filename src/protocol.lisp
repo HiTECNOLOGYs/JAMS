@@ -18,7 +18,7 @@
           port)
   (write-sequence (encode-packet 'kick
                                  '((:string "SASAI LALKA")))
-                  stream))
+                  (socket-stream socket)))
 
 (defpacket (encryption-key-request #xFD) ())
 
@@ -26,9 +26,9 @@
   (declare (ignore magic))
   (write-sequence (packet-attach-id 'kick
                                     (encode-ping-response "61" "1.5.2" "MAMKU EBAL" "8" "32"))
-                  stream)
+                  (socket-stream socket))
   (error 'drop-connection
-         :connection-id connection-id
+         :socket socket
          :message "Kicking client after ping request."))
 
 (defpacket (kick #xFF) ((:string message)))

@@ -13,21 +13,13 @@
   (status :connecting))
 
 (let ((connections (make-hash-table))
-      (socket-id-table (make-hash-table))
       sockets)
-  
-  (defun get-socket-by-id (id)
-    (gethash id socket-id-table))
-  
-  (defun (setf get-socket-by-id) (value id)
-    (setf (gethash id socket-id-table) value))
   
   (defun empty-connections ()
     (clrhash connections))
   
   (defun empty-sockets ()
     (mapc #'socket-close sockets)
-    (clrhash socket-id-table)
     (setf sockets nil))
   
   (defun get-connections ()
@@ -48,12 +40,10 @@
   (defun (setf get-connection) (value socket)
     (setf (gethash socket connections) value))
   
-  (defun add-socket (socket id)
-    (setf (get-socket-by-id id) socket)
+  (defun add-socket (socket)
     (push socket sockets))
   
-  (defun remove-socket (socket id)
-    (remhash id socket-id-table)
+  (defun remove-socket (socket)
     (setf sockets (remove socket sockets)))
   
   (defun add-connection (socket connection)
