@@ -1,8 +1,5 @@
 (in-package :jams)
 
-(define-constant +master-socket-id+ 0)
-
-
 (defun receive-bytes (stream byte-count)
   (loop repeat byte-count
         collecting (read-byte stream)))
@@ -13,15 +10,11 @@
 (defun receive-field (stream type)
   (convert type
            (let ((field-size (get-type-size type)))
-             (if (not (or (eql field-size :prefix)
-                          (eql field-size :prefix*2)
-                          (eql field-size :metadata)))
-                 (receive-bytes stream field-size)
-                 (let ((prefix (read-prefix stream)))
-                   (case field-size
-                     (:prefix (receive-bytes stream prefix))
-                     (:prefix*2 (receive-bytes stream (* 2 prefix)))
-                     (:metadata "Not supported yet")))))))
+             (case field-size
+               (:prefix (receive-bytes stream (read-prefix stream)))
+               (:prefix*2 (receive-bytes stream (* 2 (read-prefix stream))))
+               (:metadata "Not supported yet")
+               (otherwise (receive-bytes stream field-size))))))
 
 (defun receive-packet (stream)
   (let ((packet-id (read-byte stream)))
@@ -35,13 +28,8 @@
 
 (defun process-new-client (socket connection)
   (format t "Connecting client with ID: ~D~%" (connection-id connection))
-  (let ((responses (receive-and-process-packet socket))
-        (stream (socket-stream socket)))
-    (if (listp responses)
-        (dolist (response responses)
-          (write-sequence response
-                          stream))
-        (write-sequence responses stream))
+  (let ((stream (socket-stream socket)))
+    (receive-and-process-packet socket)
     (finish-output stream))
   nil)
 
@@ -87,10 +75,13 @@
             (setf (connection-status connection)
                   new-status)))
         t)
+
     (end-of-file (condition)
       (drop-connection-handler condition))
+
     (drop-connection (condition)
       (drop-connection-handler condition))
+
     (invalid-packet (condition)
       (invalid-packet-handler condition))))
 

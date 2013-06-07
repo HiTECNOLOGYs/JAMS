@@ -49,7 +49,7 @@
     (:bool 1)
     (:metadata :metadata)))
 
-(defun split-number-to-bytes (number &optional (size 1))
+(defun number->bytes (number &optional (size 1))
   (if (zerop number)
       #(0)
       (loop
@@ -70,8 +70,8 @@
                                                            :little-endian nil)))
 
 (defun encode-string-size (string)
-  (split-number-to-bytes (length string)
-                         (get-type-size :short)))
+  (number->bytes (length string)
+                 (get-type-size :short)))
 
 (defun encode-string (string)
   (concatenate 'vector
@@ -83,8 +83,8 @@
               :initial-contents array))
 
 (defun encode-byte-array-size (array)
-  (split-number-to-bytes (length array)
-                         (get-type-size :byte)))
+  (number->bytes (length array)
+                 (get-type-size :byte)))
 
 (defun encode-byte-array (array)
   (concatenate 'vector
@@ -95,12 +95,12 @@
   "`Value' MUST be valid."
   (destructuring-bind (type data) value
     (case type
-      (:byte (split-number-to-bytes data (get-type-size type)))
-      (:short (split-number-to-bytes data (get-type-size type)))
-      (:integer (split-number-to-bytes data (get-type-size type)))
-      (:long (split-number-to-bytes data (get-type-size type)))
-      (:float (split-number-to-bytes (encode-float32 data) (get-type-size type)))
-      (:double (split-number-to-bytes (encode-float64 data) (get-type-size type)))
+      (:byte (number->bytes data (get-type-size type)))
+      (:short (number->bytes data (get-type-size type)))
+      (:integer (number->bytes data (get-type-size type)))
+      (:long (number->bytes data (get-type-size type)))
+      (:float (number->bytes (encode-float32 data) (get-type-size type)))
+      (:double (number->bytes (encode-float64 data) (get-type-size type)))
       (:byte-array (encode-byte-array data))
       (:string (encode-string data))
       (:bool (if (= 0 data)

@@ -15,10 +15,10 @@
 (let ((connections (make-hash-table))
       sockets)
   
-  (defun empty-connections ()
+  (defun clear-connections ()
     (clrhash connections))
   
-  (defun empty-sockets ()
+  (defun clear-sockets ()
     (mapc #'socket-close sockets)
     (setf sockets nil))
   

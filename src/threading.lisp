@@ -7,10 +7,13 @@
   (defun get-queue ()
     queue)
   
-  (defun empty-queue ()
+  (defun (setf get-queue) (value)
+    (setf queue value))
+  
+  (defun clear-queue ()
     (with-locked-queue queue
-      (dotimes (c (queue-count/no-lock queue))
-        (pop-queue/no-lock queue)))
+      (loop repeat (queue-count/no-lock queue)
+            do (pop-queue/no-lock queue)))
     (values))
 
   (defun add-to-queue (function &rest arguments)

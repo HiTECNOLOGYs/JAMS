@@ -73,18 +73,20 @@
                #(#x00 #x00)
                (encode-string-raw max-players)))
 
-(defun packet-attach-id (name data)
-  (concatenate 'vector
-               (vector (packet-definition-id (get-packet-definition-by-name name)))
-               data))
+(defun encode-data (data)
+  (reduce (curry #'concatenate 'vector)
+          data
+          :key #'encode-value))
 
-(defun encode-packet (name data)
+(defun make-packet (name data)
   (let ((packet-id (packet-definition-id (get-packet-definition-by-name name))))
     (concatenate 'vector
                  (vector packet-id)
-                 (reduce (curry #'concatenate 'vector)
-                         data
-                         :key #'encode-value))))
+                 data)))
+
+(defun encode-packet (name data)
+  (encode-packet name
+                 (encode-data data)))
 
 (defun process-packet (socket packet)
   (destructuring-bind (packet-id . packet-data) packet
@@ -92,5 +94,6 @@
       (if packet-processor
         (apply packet-processor socket packet-data)
         (error 'Invalid-packet
-               :message "Dunno what is this shit."
+               :message "Dunno what is this shit"
+               :socket socket
                :data packet)))))
