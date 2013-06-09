@@ -7,19 +7,21 @@
         finally (return result)))
 
 (defun bytes->number (bytes)
-  (let* ((number-raw (compose-bytes bytes))
-         (number-length (* 8
-                           (ceiling (/ (integer-length number-raw)
-                                       8))))
-         (number (ldb (byte (1- number-length)
-                            0)
-                      number-raw))
-         (sign (ldb (byte 1 (1- number-length))
-                    number-raw)))
-    (if (= 1 sign)
-        (+ (- (expt 2 (1- number-length)))
-           number)
-        number)))
+  (if (every #'zerop bytes)
+      0
+      (let* ((number-raw (compose-bytes bytes))
+             (number-length (* 8
+                               (ceiling (/ (integer-length number-raw)
+                                           8))))
+             (number (ldb (byte (1- number-length)
+                                0)
+                          number-raw))
+             (sign (ldb (byte 1 (1- number-length))
+                        number-raw)))
+        (if (= 1 sign)
+            (+ (- (expt 2 (1- number-length)))
+               number)
+            number))))
 
 (defun convert (type data)
   (case type
@@ -47,7 +49,8 @@
     (:byte-array :prefix)
     (:string :prefix*2)
     (:bool 1)
-    (:metadata :metadata)))
+    (:metadata :metadata)
+    (otherwise (error "~S is not known type specifier." type))))
 
 (defun number->bytes (number &optional (size 1))
   (if (zerop number)

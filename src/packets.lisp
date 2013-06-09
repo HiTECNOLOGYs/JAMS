@@ -85,8 +85,8 @@
                  data)))
 
 (defun encode-packet (name data)
-  (encode-packet name
-                 (encode-data data)))
+  (make-packet name
+               (encode-data data)))
 
 (defun process-packet (socket packet)
   (destructuring-bind (packet-id . packet-data) packet
@@ -96,4 +96,4 @@
         (error 'Invalid-packet
                :message "Dunno what is this shit"
                :socket socket
-               :data packet)))))
+               :data packet-id)))))
