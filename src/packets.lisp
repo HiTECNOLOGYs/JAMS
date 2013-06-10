@@ -11,12 +11,6 @@
    (socket :initarg :socket
            :reader socket)))
 
-(define-condition Drop-connection ()
-  ((message :initarg :message
-            :reader message)
-   (socket :initarg :socket
-           :reader socket)))
-
 (defun make-packet-definition (id structure processor)
   (list id structure processor))
 

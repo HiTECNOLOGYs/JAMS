@@ -26,18 +26,41 @@
   (let ((stream (socket-stream socket)))
     (process-packet socket (receive-packet stream))))
 
+(defun send-data-to-client (socket connection)
+  (format t "Sending data to client #~D~%" (connection-id connection))
+  (write-sequence (encode-packet 'login-request
+                                 '((:integer 228)
+                                   (:string "default")
+                                   (:byte 0)
+                                   (:byte 0)
+                                   (:byte 0)
+                                   (:byte 0)
+                                   (:byte 16)))
+                  (socket-stream socket))
+  (write-sequence (encode-packet 'spawn-position
+                                 '((:integer 0)
+                                   (:integer 0)
+                                   (:integer 0)))
+                  (socket-stream socket))
+  (write-sequence (encode-packet 'player-position-and-look
+                                 '((:double 0.0)
+                                   (:double 0.0)
+                                   (:double 2.0)
+                                   (:double 0.0)
+                                   (:float 0.0)
+                                   (:float 0.0)
+                                   (:bool 1)))
+                  (socket-stream socket)))
+
 (defun process-new-client (socket connection)
   (format t "Connecting client with ID: ~D~%" (connection-id connection))
-  (let ((stream (socket-stream socket)))
-    (receive-and-process-packet socket)
-    (finish-output stream))
-  nil)
-
-(defun send-data-to-client (socket connection)
-  nil)
+  (receive-and-process-packet socket)
+  (send-data-to-client socket connection)
+  (signal 'Change-connection-status :socket socket :new-status :established))
 
 (defun process-client (socket connection)
-  nil)
+  (declare (ignore connection))
+  (receive-and-process-packet socket))
 
 (let ((connection-id-counter 0))
   (defun establish-connection (socket)
@@ -65,19 +88,28 @@
     (force-output)
     (drop-connection socket)))
 
+(defun change-connection-status-handler (condition)
+  (let ((connection (get-connection (socket condition)))
+        (new-status (new-status condition)))
+    (format t "Changing connection [~D] status to ~A~%" (connection-id connection) new-status)
+    (setf (connection-status connection)
+          new-status)))
+
 (defun process-connection (socket)
   (handler-case
-      (let ((connection (get-connection socket)))
-        (let ((new-status (funcall (get-connection-status-processor (connection-status connection))
-                                   socket
-                                   connection)))
-          (when new-status
-            (setf (connection-status connection)
-                  new-status)))
-        t)
-
-    (end-of-file (condition)
-      (drop-connection-handler condition))
+    (let ((connection (get-connection socket)))
+      (handler-bind
+          ((change-connection-status #'change-connection-status-handler))
+        (funcall (get-connection-status-processor (connection-status connection))
+                 socket
+                 connection)
+        (finish-output (socket-stream socket)))
+      t)
+    
+    (end-of-file ()
+      (drop-connection-handler (make-condition 'Drop-connection
+                                               :socket socket
+                                               :message "Client dropped conenction")))
 
     (drop-connection (condition)
       (drop-connection-handler condition))
@@ -91,10 +123,17 @@
     (add-socket socket)
     (unwind-protect
          (loop
-            (dolist (ready-socket (wait-for-input (get-sockets) :ready-only t))
-              (if (eql ready-socket socket)
-                  (add-to-queue #'establish-connection (socket-accept ready-socket))
-                  (add-to-queue #'process-connection ready-socket)))
+            (handler-case
+                (dolist (ready-socket (wait-for-input (get-sockets) :ready-only t))
+                  (if (eql ready-socket socket)
+                      (add-to-queue #'establish-connection (socket-accept ready-socket))
+                      (add-to-queue #'process-connection ready-socket)))
+              
+              (sb-int:simple-stream-error ()
+                nil)
+
+              (sb-sys:interactive-interrupt ()
+                (return-from server (values))))
             (run-queue))
       (remove-socket socket)))
   (values))

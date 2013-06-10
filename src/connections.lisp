@@ -2,8 +2,19 @@
 
 (defparameter *connection-statuses*
   '((:connecting  . process-new-client)
-    (:established . send-data-to-client)
-    (:running     . process-client)))
+    (:established . process-client)))
+
+(define-condition Change-connection-status ()
+  ((socket :initarg :socket
+           :reader socket)
+   (new-status :initarg :new-status
+               :reader new-status)))
+
+(define-condition Drop-connection ()
+  ((message :initarg :message
+            :reader message)
+   (socket :initarg :socket
+           :reader socket)))
 
 (defun get-connection-status-processor (status)
   (cdr (assoc status *connection-statuses*)))
