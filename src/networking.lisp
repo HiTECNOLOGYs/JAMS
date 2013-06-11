@@ -1,26 +1,13 @@
 (in-package :jams)
 
-(defun receive-bytes (stream byte-count)
-  (loop repeat byte-count
-        collecting (read-byte stream)))
-
-(defun read-prefix (stream)
-  (bytes->number (reverse (receive-bytes stream (get-type-size :short)))))
-
-(defun receive-field (stream type)
-  (convert type
-           (let ((field-size (get-type-size type)))
-             (case field-size
-               (:prefix (receive-bytes stream (read-prefix stream)))
-               (:prefix*2 (receive-bytes stream (* 2 (read-prefix stream))))
-               (:metadata "Not supported yet")
-               (otherwise (receive-bytes stream field-size))))))
+(defun receive-field (stream type-definition)
+  (read-typedef stream type-definition))
 
 (defun receive-packet (stream)
   (let ((packet-id (read-byte stream)))
     (cons packet-id
-          (loop for type in (packet-definition-structure (get-packet-definition packet-id))
-                collecting (receive-field stream type)))))
+          (mapcar (curry #'receive-field stream)
+                  (packet-definition-structure (get-packet-definition packet-id))))))
 
 (defun receive-and-process-packet (socket)
   (let ((stream (socket-stream socket)))
@@ -135,5 +122,6 @@
               (sb-sys:interactive-interrupt ()
                 (return-from server (values))))
             (run-queue))
-      (remove-socket socket)))
+      (progn (clear-sockets)
+             (clear-connections))))
   (values))

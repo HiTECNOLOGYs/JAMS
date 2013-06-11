@@ -1,111 +1,174 @@
 (in-package :jams)
 
+(defparameter *type-sizes*
+  '((:byte          . 1)
+    (:short         . 2)
+    (:integer       . 4)
+    (:long          . 8)
+    (:float         . 4)
+    (:double        . 8)
+    (:character     . 2)
+    (:bool          . 1)
+    (:length-prefix . 2)
+    (:metadata      . :metadata)))
+
+(defun get-type-size (typespec)
+  (aif (cdr (assoc typespec *type-sizes*))
+    it
+    0))
+
+(defun two-bytes-to-fixnum (vector-of-four)
+  (let ((unsigned 0))
+    (setf (ldb (byte 8 0) unsigned) (aref vector-of-four 0))
+    (setf (ldb (byte 8 8) unsigned) (aref vector-of-four 1))
+    (logior unsigned
+            (- (mask-field (byte 1 15) unsigned)))))
+
+(defun four-bytes-to-fixnum (vector-of-four)
+  (let ((unsigned 0))
+    (setf (ldb (byte 8 0) unsigned) (aref vector-of-four 0))
+    (setf (ldb (byte 8 8) unsigned) (aref vector-of-four 1))
+    (setf (ldb (byte 8 16) unsigned) (aref vector-of-four 2))
+    (setf (ldb (byte 8 24) unsigned) (aref vector-of-four 3))
+    (logior unsigned
+            (- (mask-field (byte 1 31) unsigned)))))
+
+(defun eight-bytes-to-fixnum (vector-of-four)
+  (let ((unsigned 0))
+    (setf (ldb (byte 8 0) unsigned) (aref vector-of-four 0))
+    (setf (ldb (byte 8 8) unsigned) (aref vector-of-four 1))
+    (setf (ldb (byte 8 16) unsigned) (aref vector-of-four 2))
+    (setf (ldb (byte 8 24) unsigned) (aref vector-of-four 3))
+    (setf (ldb (byte 8 32) unsigned) (aref vector-of-four 0))
+    (setf (ldb (byte 8 40) unsigned) (aref vector-of-four 1))
+    (setf (ldb (byte 8 48) unsigned) (aref vector-of-four 2))
+    (setf (ldb (byte 8 56) unsigned) (aref vector-of-four 3))
+    (logior unsigned
+            (- (mask-field (byte 1 63) unsigned)))))
+
 (defun compose-bytes (bytes)
-  (loop for byte in bytes
+  (loop for position from 0 to (1- (length bytes))
         for shift = 0 then (+ 8 shift)
-        for result = byte then (logior (ash byte shift) result)
+        for byte = (elt bytes position)
+        for result = byte
+                   then (logior (ash byte shift) result)
         finally (return result)))
 
-(defun bytes->number (bytes)
-  (if (every #'zerop bytes)
-      0
-      (let* ((number-raw (compose-bytes bytes))
-             (number-length (* 8
-                               (ceiling (/ (integer-length number-raw)
-                                           8))))
-             (number (ldb (byte (1- number-length)
-                                0)
-                          number-raw))
-             (sign (ldb (byte 1 (1- number-length))
-                        number-raw)))
-        (if (= 1 sign)
-            (+ (- (expt 2 (1- number-length)))
-               number)
-            number))))
+(defgeneric decode-data (data typespec modifier))
+(defgeneric encode-data (data modifier))
 
-(defun convert (type data)
-  (case type
-    (:byte  (first data))
-    (:short (bytes->number (reverse data)))
-    (:integer (bytes->number (reverse data)))
-    (:long (bytes->number (reverse data)))
-    (:float (decode-float32 (compose-bytes (reverse data))))
-    (:double (decode-float64 (compose-bytes (reverse data))))
-    (:byte-array data)
-    (:string (octets-to-string data
-                               :external-format (make-external-format :utf-16
-                                                                      :little-endian nil)))
-    (:bool (= 1 (first data)))
-    (:metadata "Unable decode metadata yet =(")))
+(defmethod decode-data (data (typespec (eql :metadata)) modifier)
+  (error "Unable to decode metadata yet. =("))
 
-(defun get-type-size (type)
-  (case type
-    (:byte 1)
-    (:short 2)
-    (:integer 4)
-    (:long 8)
-    (:float 4)
-    (:double 8)
-    (:byte-array :prefix)
-    (:string :prefix*2)
-    (:bool 1)
-    (:metadata :metadata)
-    (otherwise (error "~S is not known type specifier." type))))
+(defmethod decode-data ((data vector) typespec (modifier (eql nil)))
+  (declare (ignore modifier))
+  (compose-bytes data))
 
-(defun number->bytes (number &optional (size 1))
-  (if (zerop number)
-      #(0)
-      (loop
-        for shift from 0 upto (1- size)
-        with result = (make-array (list size) 
-                                  :initial-element 0
-                                  :fill-pointer 0
-                                  :element-type '(unsigned-byte 8))
-        do (vector-push-extend (ldb (byte 8 (* 8 shift)) number)
-                               result)
-        finally (progn (setf (fill-pointer result)
-                             size)
-                       (return (reverse result))))))
+(defmethod decode-data ((data vector) typespec (modifier (eql :array)))
+  (declare (ignore modifier))
+  data)
 
-(defun encode-string-raw (string)
-  (string-to-octets string
+(defmethod decode-data ((data vector) (typespec (eql :character)) (modifier (eql nil)))
+  (declare (ignore modifier))
+  (code-char (logior (ash (elt data 0) 8)
+                     (elt data 1))))
+
+(defmethod decode-data ((data vector) (typespec (eql :character)) (modifier (eql :array)))
+  (declare (ignore modifier))
+  (octets-to-string data
+                    :external-format (make-external-format :ucs2
+                                                           :little-endian nil)))
+
+(defmethod deconde-data ((data vector) (typespec (eql :string)) (modifier (eql nil)))
+  (deconde-data data :character :array))
+
+(defmethod decode-data ((data vector) (typespec (eql :float)) (modifier (eql nil)))
+  (declare (ignore modifier))
+  (decode-float32 data))
+
+(defmethod decode-data ((data vector) (typespec (eql :double)) (modifier (eql nil)))
+  (declare (ignore modifier))
+  (decode-float64 data))
+
+(defmethod decode-data ((data vector) (typespec (eql :float)) (modifier (eql nil)))
+  (declare (ignore modifier))
+  (mapcar #'decode-float32 data))
+
+(defmethod decode-data ((data vector) (typespec (eql :double)) (modifier (eql nil)))
+  (declare (ignore modifier))
+  (mapcar #'decode-float64 data))
+
+(defmethod encode-data ((data integer) (size integer))
+  (if (zerop data)
+      (make-array (list size)
+                  :initial-element 0
+                  :element-type '(unsigned-byte 8))
+      (loop for shift from 0 upto (1- size) by 8
+            with result = (make-array (list size) 
+                                      :initial-element 0
+                                      :fill-pointer 0
+                                      :element-type '(unsigned-byte 8))
+            do (vector-push-extend (ldb (byte 8 shift) data)
+                                   result)
+            finally (progn (setf (fill-pointer result)
+                                 size)
+                           (return (reverse result))))))
+
+(defmethod encode-data ((data integer) (typespec symbol))
+  (encode-data data (get-type-size typespec)))
+
+(defmethod encode-data ((data float) (typespec (eql :single)))
+  (encode-data (encode-float32 data) 4))
+
+(defmethod encode-data ((data float) (typespec (eql :double)))
+  (encode-data (encode-float64 data) 8))
+
+(defmethod encode-data ((data string) (modifier (eql :raw)))
+  (string-to-octets data
                     :external-format (make-external-format :utf-16
                                                            :little-endian nil)))
 
-(defun encode-string-size (string)
-  (number->bytes (length string)
-                 (get-type-size :short)))
-
-(defun encode-string (string)
+(defmethod encode-data ((data string) (modifier (eql nil)))
   (concatenate 'vector
-               (encode-string-size string)
-               (encode-string-raw string)))
+               (encode-data (length data) :short)
+               (encode-data data :raw)))
 
-(defun encode-byte-array-raw (array)
-  (make-array (list (length array))
-              :initial-contents array))
+(defmethod encode-data ((data vector) (modifier (eql :raw)))
+  data)
 
-(defun encode-byte-array-size (array)
-  (number->bytes (length array)
-                 (get-type-size :byte)))
-
-(defun encode-byte-array (array)
+(defmethod encode-data ((data vector) (modifier (eql nil)))
   (concatenate 'vector
-               (encode-byte-array-size array)
-               (encode-byte-array-raw array)))
+               (encode-data (length data) :short)
+               (encode-data data :raw)))
+
+(defmethod encode-data ((data symbol) (modifier (eql nil)))
+  (cond
+    ((eql data t) #(1))
+    ((eql data nil) #(0))
+    (t (error "Can't possibly imagine how I supposed to convert ~S to bytes array." data))))
+
+
+(defgeneric read-value (stream type modifier))
+
+(defmethod read-value (stream type (modifier (eql :array)))
+  (let ((prefix (read-byte stream)))
+    (decode-data (read-bytes stream (* prefix (get-type-size type)))
+                 type
+                 modifier)))
+
+(defmethod read-value (stream type modifier)
+  (decode-data (read-bytes stream (get-type-size type))
+               type
+               modifier))
+
+(defun read-typedef (stream type-definition)
+  (if (listp type-definition)
+      (destructuring-bind (modifier type) type-definition
+        (read-value stream type modifier))
+      (read-value stream type-definition nil)))
 
 (defun encode-value (value)
-  "`Value' MUST be valid."
-  (destructuring-bind (type data) value
-    (case type
-      (:byte (number->bytes data (get-type-size type)))
-      (:short (number->bytes data (get-type-size type)))
-      (:integer (number->bytes data (get-type-size type)))
-      (:long (number->bytes data (get-type-size type)))
-      (:float (number->bytes (encode-float32 data) (get-type-size type)))
-      (:double (number->bytes (encode-float64 data) (get-type-size type)))
-      (:byte-array (encode-byte-array data))
-      (:string (encode-string data))
-      (:bool (if (= 0 data)
-                 #(0) #(1)))
-      (:metadata #(0)))))
+  (if (listp value)
+      (destructuring-bind (modifier data) value
+        (encode-data data modifier))
+      (encode-data value nil)))

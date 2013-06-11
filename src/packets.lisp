@@ -57,17 +57,17 @@
                                       (length player-count)
                                       (length max-players))))
                #(#x00 #xA7 #x00 #x31 #x00 #x00)
-               (encode-string-raw protocol-version)
+               (encode-data protocol-version :raw)
                #(#x00 #x00)
-               (encode-string-raw server-version)
+               (encode-data server-version :raw)
                #(#x00 #x00)
-               (encode-string-raw motd)
+               (encode-data motd :raw)
                #(#x00 #x00)
-               (encode-string-raw player-count)
+               (encode-data player-count :raw)
                #(#x00 #x00)
-               (encode-string-raw max-players)))
+               (encode-data max-players :raw)))
 
-(defun encode-data (data)
+(defun encode-packet-data (data)
   (reduce (curry #'concatenate 'vector)
           data
           :key #'encode-value))
@@ -80,7 +80,7 @@
 
 (defun encode-packet (name data)
   (make-packet name
-               (encode-data data)))
+               (encode-packet-data data)))
 
 (defun process-packet (socket packet)
   (destructuring-bind (packet-id . packet-data) packet
