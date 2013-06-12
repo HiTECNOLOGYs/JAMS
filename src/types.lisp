@@ -47,7 +47,7 @@
             (- (mask-field (byte 1 63) unsigned)))))
 
 (defun compose-bytes (bytes)
-  (loop for position from 0 to (1- (length bytes))
+  (loop for position from (1- (length bytes)) downto 0
         for shift = 0 then (+ 8 shift)
         for byte = (elt bytes position)
         for result = byte
@@ -76,19 +76,19 @@
 (defmethod decode-data ((data vector) (typespec (eql :character)) (modifier (eql :array)))
   (declare (ignore modifier))
   (octets-to-string data
-                    :external-format (make-external-format :ucs2
+                    :external-format (make-external-format :utf-16
                                                            :little-endian nil)))
 
-(defmethod deconde-data ((data vector) (typespec (eql :string)) (modifier (eql nil)))
-  (deconde-data data :character :array))
+(defmethod decode-data ((data vector) (typespec (eql :string)) (modifier (eql nil)))
+  (decode-data data :character :array))
 
 (defmethod decode-data ((data vector) (typespec (eql :float)) (modifier (eql nil)))
   (declare (ignore modifier))
-  (decode-float32 data))
+  (decode-float32 (compose-bytes data)))
 
 (defmethod decode-data ((data vector) (typespec (eql :double)) (modifier (eql nil)))
   (declare (ignore modifier))
-  (decode-float64 data))
+  (decode-float64 (compose-bytes data)))
 
 (defmethod decode-data ((data vector) (typespec (eql :float)) (modifier (eql nil)))
   (declare (ignore modifier))
@@ -114,8 +114,17 @@
                                  size)
                            (return (reverse result))))))
 
+(defmethod encode-data ((data integer) (typespec (eql nil)))
+  (encode-data data :byte))
+
 (defmethod encode-data ((data integer) (typespec symbol))
   (encode-data data (get-type-size typespec)))
+
+(defmethod encode-data ((data float) (typespec (eql nil)))
+  (encode-data data :single))
+
+(defmethod encode-data ((data float) (typespec (eql :float)))
+  (encode-data data :single))
 
 (defmethod encode-data ((data float) (typespec (eql :single)))
   (encode-data (encode-float32 data) 4))
@@ -151,10 +160,13 @@
 (defgeneric read-value (stream type modifier))
 
 (defmethod read-value (stream type (modifier (eql :array)))
-  (let ((prefix (read-byte stream)))
+  (let ((prefix (read-value stream :short nil)))
     (decode-data (read-bytes stream (* prefix (get-type-size type)))
                  type
                  modifier)))
+
+(defmethod read-value (stream (type (eql :string)) (modifier (eql nil)))
+  (read-value stream :character :array))
 
 (defmethod read-value (stream type modifier)
   (decode-data (read-bytes stream (get-type-size type))

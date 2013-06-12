@@ -17,12 +17,12 @@
   (format t "Sending data to client #~D~%" (connection-id connection))
   (write-sequence (encode-packet 'login-request
                                  '((:integer 228)
-                                   (:string "default")
-                                   (:byte 0)
-                                   (:byte 0)
-                                   (:byte 0)
-                                   (:byte 0)
-                                   (:byte 16)))
+                                   "default"
+                                   0
+                                   0
+                                   0
+                                   0
+                                   16))
                   (socket-stream socket))
   (write-sequence (encode-packet 'spawn-position
                                  '((:integer 0)
@@ -34,9 +34,9 @@
                                    (:double 0.0)
                                    (:double 2.0)
                                    (:double 0.0)
-                                   (:float 0.0)
-                                   (:float 0.0)
-                                   (:bool 1)))
+                                   0.0
+                                   0.0
+                                   t))
                   (socket-stream socket)))
 
 (defun process-new-client (socket connection)

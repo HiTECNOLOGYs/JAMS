@@ -28,4 +28,4 @@
         with result = (make-array (list 0) :adjustable t :fill-pointer 0 :element-type '(unsigned-byte 8))
         do (vector-push-extend (read-byte stream)
                                result)
-        finally (return (reverse result))))
+        finally (return result)))
