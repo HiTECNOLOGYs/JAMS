@@ -55,17 +55,18 @@
     (push socket sockets))
   
   (defun remove-socket (socket)
-    (setf sockets (remove socket sockets)))
+    (setf sockets (remove socket sockets))
+    socket)
   
   (defun add-connection (socket connection)
     (setf (get-connection socket) connection))
 
   (defun remove-connection (socket)
-    (unwind-protect (socket-close socket)
-      (remhash socket connections))
-    (values)))
+    (remhash socket connections)
+    socket))
 
 (defun drop-connection (socket)
+  (socket-close socket)
   (remove-socket socket)
   (remove-connection socket))
 
@@ -91,6 +92,11 @@
     (force-output)
     (drop-connection socket)))
 
+(defun communication-error-handler (socket)
+  (format t "Communication error on ~S. Cleaning up stuff.~%" socket)
+  (remove-socket socket)
+  (remove-connection socket))
+
 (defun change-connection-status-handler (condition)
   (let ((connection (get-connection (socket condition)))
         (new-status (new-status condition)))
@@ -113,6 +119,9 @@
       (drop-connection-handler (make-condition 'Drop-connection
                                                :socket socket
                                                :message "Client dropped conenction")))
+    
+    (sb-int:simple-stream-error ()
+      (communication-error-handler socket))
 
     (drop-connection (condition)
       (drop-connection-handler condition))

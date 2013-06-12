@@ -82,6 +82,9 @@
   (make-packet name
                (encode-packet-data data)))
 
+(defun make-keep-alive-packet ()
+  (encode-packet 'keep-alive `((:integer ,(random (1- (ash 2 15)))))))
+
 (defun process-packet (socket packet)
   (destructuring-bind (packet-id . packet-data) packet
     (let ((packet-processor (packet-definition-processor (get-packet-definition packet-id))))

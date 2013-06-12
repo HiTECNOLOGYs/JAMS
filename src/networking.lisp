@@ -45,27 +45,36 @@
   (send-data-to-client socket connection)
   (signal 'Change-connection-status :socket socket :new-status :established))
 
+(defun keep-alive-client (socket)
+  (write-sequence (make-keep-alive-packet)
+                  (socket-stream socket))
+  (handler-case (finish-output)
+    (sb-int:simple-stream-error ()
+      (communication-error-handler socket))))
+
+(defun keep-alive-everybody ()
+  (mapc #'keep-alive-client
+        (get-sockets)))
+
 (defun process-connected-client (socket connection)
   (declare (ignore connection))
+  (keep-alive-client socket)
   (receive-and-process-packet socket))
 
 (defun server (port)
   (setf *kernel* (make-kernel +max-number-of-threads+))
   (with-socket-listener (socket *wildcard-host* port :element-type '(unsigned-byte 8) :reuse-address t)
-    (add-socket socket)
     (unwind-protect
          (loop
             (handler-case
-                (dolist (ready-socket (wait-for-input (get-sockets) :ready-only t))
+                (dolist (ready-socket (wait-for-input (cons socket (get-sockets)) :ready-only t))
                   (if (eql ready-socket socket)
                       (add-to-queue #'establish-connection (socket-accept ready-socket))
                       (add-to-queue #'process-connection ready-socket)))
               
-              (sb-int:simple-stream-error ()
-                nil)
-
               (sb-sys:interactive-interrupt ()
                 (return-from server (values))))
+
             (run-queue))
       (progn (clear-sockets)
              (clear-connections))))

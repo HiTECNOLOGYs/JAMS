@@ -2,9 +2,7 @@
 
 (defpacket (keep-alive #x00) ((:integer id))
   (format t "Keep alive: ~D~%" id)
-  (write-sequence (encode-packet 'keep-alive
-                                 `((:integer ,(random (1- (ash 2 15))))))
-                  (socket-stream socket)))
+  (keep-alive-client socket))
 
 (defpacket (login-request #x01) ((:integer entity-id)
                                  (:string level-type)
