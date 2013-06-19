@@ -4,4 +4,6 @@
         :usocket
         :ieee-floats
         :lparallel
-        :lparallel.queue))
+        :lparallel.queue
+        :cl-store
+        :bordeaux-threads))

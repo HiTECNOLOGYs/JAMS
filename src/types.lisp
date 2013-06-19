@@ -61,20 +61,16 @@
   (error "Unable to decode metadata yet. =("))
 
 (defmethod decode-data ((data vector) typespec (modifier (eql nil)))
-  (declare (ignore modifier))
   (compose-bytes data))
 
 (defmethod decode-data ((data vector) typespec (modifier (eql :array)))
-  (declare (ignore modifier))
   data)
 
 (defmethod decode-data ((data vector) (typespec (eql :character)) (modifier (eql nil)))
-  (declare (ignore modifier))
   (code-char (logior (ash (elt data 0) 8)
                      (elt data 1))))
 
 (defmethod decode-data ((data vector) (typespec (eql :character)) (modifier (eql :array)))
-  (declare (ignore modifier))
   (octets-to-string data
                     :external-format (make-external-format :utf-16
                                                            :little-endian nil)))
@@ -83,19 +79,15 @@
   (decode-data data :character :array))
 
 (defmethod decode-data ((data vector) (typespec (eql :float)) (modifier (eql nil)))
-  (declare (ignore modifier))
   (decode-float32 (compose-bytes data)))
 
 (defmethod decode-data ((data vector) (typespec (eql :double)) (modifier (eql nil)))
-  (declare (ignore modifier))
   (decode-float64 (compose-bytes data)))
 
-(defmethod decode-data ((data vector) (typespec (eql :float)) (modifier (eql nil)))
-  (declare (ignore modifier))
+(defmethod decode-data ((data vector) (typespec (eql :float)) (modifier (eql :array)))
   (mapcar #'decode-float32 data))
 
-(defmethod decode-data ((data vector) (typespec (eql :double)) (modifier (eql nil)))
-  (declare (ignore modifier))
+(defmethod decode-data ((data vector) (typespec (eql :double)) (modifier (eql :array)))
   (mapcar #'decode-float64 data))
 
 (defmethod encode-data ((data integer) (size integer))

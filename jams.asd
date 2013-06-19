@@ -10,7 +10,10 @@
   :defsystem-depends-on (flexi-streams
                          usocket
                          ieee-floats
-                         lparallel)
+                         lparallel
+                         bordeaux-threads
+                         salza2
+                         cl-store)
   :components ((:module :src
                         :serial t
                         :components ((:file "packages")
@@ -20,5 +23,6 @@
                                      (:file "protocol")
                                      (:file "threading")
                                      (:file "connections")
+                                     (:file "game")
                                      (:file "networking")
                                      (:file "main")))))

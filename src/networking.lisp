@@ -46,36 +46,53 @@
   (signal 'Change-connection-status :socket socket :new-status :established))
 
 (defun keep-alive-client (socket)
-  (write-sequence (make-keep-alive-packet)
-                  (socket-stream socket))
-  (handler-case (finish-output)
+  (handler-case (progn (write-sequence (make-keep-alive-packet)
+                                       (socket-stream socket))
+                       (finish-output))
     (sb-int:simple-stream-error ()
       (communication-error-handler socket))))
 
 (defun keep-alive-everybody ()
-  (mapc #'keep-alive-client
-        (get-sockets)))
+  (dolist (socket (get-sockets))
+    (let ((connection (get-connection socket)))
+      (when (eql (connection-status connection) :established)
+        (keep-alive-client socket)))))
 
 (defun process-connected-client (socket connection)
   (declare (ignore connection))
   (keep-alive-client socket)
   (receive-and-process-packet socket))
 
+(defun network-listener-thread ()
+  (let ((port (receive-message :network-listener-thread)))
+    (with-socket-listener (socket *wildcard-host* port
+                                  :element-type '(unsigned-byte 8) :reuseaddress t)
+      (format t "Starting listener on port ~D~%" port)
+      (unwind-protect
+        (loop
+           for message = (unless (message-queue-empty-p :network-listener-thread)
+                           (receive-message :network-listener-thread))
+           if (eql message :stop)
+           do (format t "Stopping listener on port ~D~%" port)
+             (return nil)
+           else
+           do (handler-case
+                  (dolist (ready-socket (wait-for-input (cons socket (get-sockets))
+                                                        :ready-only t
+                                                        :timeout 5))
+                    (if (eql ready-socket socket)
+                        (add-task-to-queue #'establish-connection (socket-accept ready-socket))
+                        (add-task-to-queue #'process-connection ready-socket)))
+                (sb-int:simple-stream-error ()
+                  ;; TODO rewrite entire network listener to make it check sockets state first
+                  nil))
+             (run-tasks-queue))
+        (progn (clear-sockets)
+               (clear-connections))))))
+
 (defun server (port)
   (setf *kernel* (make-kernel +max-number-of-threads+))
-  (with-socket-listener (socket *wildcard-host* port :element-type '(unsigned-byte 8) :reuse-address t)
-    (unwind-protect
-         (loop
-            (handler-case
-                (dolist (ready-socket (wait-for-input (cons socket (get-sockets)) :ready-only t))
-                  (if (eql ready-socket socket)
-                      (add-to-queue #'establish-connection (socket-accept ready-socket))
-                      (add-to-queue #'process-connection ready-socket)))
-              
-              (sb-sys:interactive-interrupt ()
-                (return-from server (values))))
-
-            (run-queue))
-      (progn (clear-sockets)
-             (clear-connections))))
+  (run-separate-thread #'server-main-thread :main-thread)
+  (run-separate-thread #'network-listener-thread :network-listener-thread)
+  (send-message-to-thread :network-listener-thread port)
   (values))
