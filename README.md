@@ -5,10 +5,14 @@ Written on 100% pure CL.
 
 Dependencies
 -------------
-* **usocket** - networking
+* **iolib** - networking
 * **flexi-streams** - easy requests/responds deconding/encoding.
 * **ieee-floats** - floats/double decoding/encoding
-* **lparallel** - threading
+* **lparallel** - queues/threading
+* **bordeaux-threads** - threading
+* **salza2** - compression
+* **cl-store** - serialization
+
 
 
 What it can do?
