@@ -13,13 +13,42 @@
                                  (:byte nothing) ; was used by vanilla server to set world height
                                  (:byte max-players)))
 
+(defun send-login-packets (connection)
+  "Sends packets required to log in."
+  #+jams-debug (format t "Sending data to client #~D~%"
+                       (connection-id connection))
+  (send-data (encode-packet 'login-request
+                            '((:integer 228)
+                              "default"
+                              0
+                              0
+                              0
+                              0
+                              16))
+             connection)
+  (send-data (encode-packet 'spawn-position
+                            '((:integer 0)
+                              (:integer 0)
+                              (:integer 0)))
+             connection)
+  (send-data (encode-packet 'player-position-and-look
+                            '((:double 0.0)
+                              (:double 0.0)
+                              (:double 2.0)
+                              (:double 0.0)
+                              0.0
+                              0.0
+                              t))
+             connection))
+
 (defpacket (handshake #x02) ((:byte prot-id) (:string nick) (:string address) (:integer port))
   #+jams-debug
   (format t "***HANDSHAKE***~%Protocol ID: ~D~%Nickname: ~A~%Address: ~A~%Port: ~A~%"
           prot-id
           nick
           address
-          port))
+          port)
+  (send-login-packets connection))
 
 (defpacket (spawn-position #x06) ((:integer x) (:integer y) (:integer z)))
 

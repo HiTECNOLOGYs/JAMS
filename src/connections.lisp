@@ -54,6 +54,12 @@
                    (connection-remote-port connection))
              *connections*)))
 
+(defgeneric send-data (data connection)
+  (:method ((data vector) (connection Connection))
+    (let ((queue (connection-data-queue connection)))
+      (lparallel.queue:with-locked-queue queue
+        (lparallel.queue:push-queue/no-lock data queue)))))
+
 (defun get-connection (remote-address remote-port)
   (gethash (cons remote-address remote-port) *connections*))
 

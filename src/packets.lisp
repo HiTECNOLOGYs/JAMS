@@ -24,8 +24,8 @@
   "Structure format (name-for-binding type)."
   `(progn
      ,(when body
-        `(defun ,name ,(append '(connection) (mapcar #'second structure))
-           (declare (ignorable socket))
+        `(defun ,name ,(cons 'connection (mapcar #'second structure))
+           (declare (ignorable connection))
            ,@body))
      (pushnew (make-packet-definition ,id
                                       ',(mapcar #'first structure)
