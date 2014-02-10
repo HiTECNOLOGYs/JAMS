@@ -1,27 +1,10 @@
 (in-package :jams)
 
-(defun curry (function &rest args)
-  #'(lambda (&rest more-args)
-      (apply function (append args
-                              more-args))))
-
-(defun compose (function-1 function-2)
-  #'(lambda (&rest arguments)
-      (funcall function-1 (apply function-2 arguments))))
-
-(defmacro define-constant (name value &optional doc)
-  `(defconstant ,name (if (boundp ',name) (symbol-value ',name) ,value)
-     ,@(when doc (list doc))))
-
-(defmacro aif (condition if-true &optional if-false)
-  `(let ((it ,condition))
-     (if it
-         ,if-true
-         ,if-false)))
-
-(defmacro awhen (condition &body body)
-  `(aif ,condition
-        (progn ,@body)))
+(defmacro doarray ((array counter element &optional size increment) &body body)
+  `(loop for ,counter upto ,(1- (if size (symbol-value size) (array-total-size array)))
+         by ,(if increment increment 1)
+         for ,element = (row-major-aref ,array ,counter)
+         do ,@body))
 
 (defun read-bytes (stream byte-count)
   (loop repeat byte-count

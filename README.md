@@ -12,11 +12,13 @@ Dependencies
 * **bordeaux-threads** - threading
 * **salza2** - compression
 * **cl-store** - serialization
+* **alexandria** - lots of handy stuff
+* **trivial-garbage** - portability layer for GC
+* **iterate** - loops and stuff
 
 
-
-What it can do?
-----------------
+What exactly can it do?
+------------------------
 Nothing, but I can do something. For example, I can draw a little cube here:
 
     --------

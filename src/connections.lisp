@@ -1,130 +1,70 @@
 (in-package :jams)
 
-(defparameter *connection-statuses*
-  '((:connecting  . process-new-client)
-    (:established . process-connected-client)))
+(defvar *connections* (make-hash-table :test 'equal))
+(defvar *next-connection-id* 0)
 
-(define-condition Change-connection-status ()
-  ((socket :initarg :socket
-           :reader socket)
-   (new-status :initarg :new-status
-               :reader new-status)))
+(defun gen-connection-id ()
+  (prog1 *next-connection-id*
+    (incf *next-connection-id*)))
 
-(define-condition Drop-connection ()
-  ((message :initarg :message
-            :reader message)
+(defclass Connection ()
+  ((id :initform (gen-connection-id)
+       :reader connection-id)
+   (remote-address :initarg :remote-address
+                   :reader connection-remote-address)
+   (remote-port :initarg :remote-port
+                :reader connection-remote-port)
+   (data-queue :initform (lparallel.queue:make-queue)
+               :accessor connection-data-queue)
    (socket :initarg :socket
-           :reader socket)))
+           :reader connection-socket)
+   (status :initform :opening
+           :accessor connection-status)
+   (client :accessor connection-client)
+   (dispatcher :initarg :dispatcher
+               :initform #'dispatch-connection
+               :accessor connection-dispatcher)))
 
-(defun get-connection-status-processor (status)
-  (cdr (assoc status *connection-statuses*)))
+(defgeneric dispatch-connection (connection)
+  (:method ((connection Connection))
+    (handler-case
+      (case (connection-status connection)
+        (:opened
+         ;; Init connection here
+         )
+        (:running
+         ;; Process player actions here
+         )))))
 
-(defstruct Connection
-  id
-  (status :connecting))
+(defgeneric connection-closed-p (connection)
+  (:method ((connection Connection))
+    (eql (connection-status connection) :closed)))
 
-(let ((connections (make-hash-table))
-      sockets)
-  
-  (defun clear-connections ()
-    (clrhash connections))
-  
-  (defun clear-sockets ()
-    (mapc #'socket-close sockets)
-    (setf sockets nil))
-  
-  (defun get-connections ()
-    connections)
-  
-  (defun get-sockets ()
-    sockets)
-  
-  (defun (setf get-connections) (value)
-    (setf connections value))
-  
-  (defun (setf get-sockets) (value)
-    (setf sockets value))
-  
-  (defun get-connection (socket)
-    (gethash socket connections))
-  
-  (defun (setf get-connection) (value socket)
-    (setf (gethash socket connections) value))
-  
-  (defun add-socket (socket)
-    (push socket sockets))
-  
-  (defun remove-socket (socket)
-    (setf sockets (remove socket sockets))
-    socket)
-  
-  (defun add-connection (socket connection)
-    (setf (get-connection socket) connection))
+(defgeneric connection-running-p (connection)
+  (:method ((connection Connection))
+    (not (connection-closed-p connection))))
 
-  (defun remove-connection (socket)
-    (remhash socket connections)
-    socket))
+(defgeneric terminate-connection (connection)
+  (:method ((connection Connection))
+    (setf (connection-status connection) :closed)))
 
-(defun drop-connection (socket)
-  (socket-close socket)
-  (remove-socket socket)
-  (remove-connection socket))
+(defgeneric delete-connection (connection)
+  (:method ((connection Connection))
+    (remhash (cons (connection-remote-address connection)
+                   (connection-remote-port connection))
+             *connections*)))
 
-(let ((connection-id-counter 0))
-  (defun establish-connection (socket)
-    (let ((connection (make-connection :id (incf connection-id-counter))))
-      (add-socket socket)
-      (add-connection socket connection))))
+(defun get-connection (remote-address remote-port)
+  (gethash (cons remote-address remote-port) *connections*))
 
-(defun drop-connection-handler (condition)
-  (let ((socket (socket condition))
-        (message (message condition)))
-    (princ message)
-    (terpri)
-    (force-output)
-    (drop-connection socket)))
+(defun (setf get-connection) (new-value remote-address remote-port)
+  (setf (gethash (cons remote-address remote-port)
+                 *connections*)
+        new-value))
 
-(defun invalid-packet-handler (condition)
-  (let ((socket (socket condition))
-        (message (message condition))
-        (data (data condition)))
-    (format t "~A: ~A~%" message data)
-    (force-output)
-    (drop-connection socket)))
-
-(defun communication-error-handler (socket)
-  (format t "Communication error on ~S. Cleaning up stuff.~%" socket)
-  (remove-socket socket)
-  (remove-connection socket))
-
-(defun change-connection-status-handler (condition)
-  (let ((connection (get-connection (socket condition)))
-        (new-status (new-status condition)))
-    (format t "Changing connection [~D] status to ~A~%" (connection-id connection) new-status)
-    (setf (connection-status connection)
-          new-status)))
-
-(defun process-connection (socket)
-  (handler-case
-    (let ((connection (get-connection socket)))
-      (handler-bind
-          ((change-connection-status #'change-connection-status-handler))
-        (funcall (get-connection-status-processor (connection-status connection))
-                 socket
-                 connection)
-        (finish-output (socket-stream socket)))
-      t)
-    
-    (end-of-file ()
-      (drop-connection-handler (make-condition 'Drop-connection
-                                               :socket socket
-                                               :message "Client dropped conenction")))
-    
-    (sb-int:simple-stream-error ()
-      (communication-error-handler socket))
-
-    (drop-connection (condition)
-      (drop-connection-handler condition))
-
-    (invalid-packet (condition)
-      (invalid-packet-handler condition))))
+(defun open-connection (remote-address remote-port socket)
+  (setf (get-connection remote-address remote-port)
+        (make-instance 'Connection
+                       :remote-address remote-address
+                       :remote-port remote-port
+                       :socket socket)))

@@ -3,13 +3,10 @@
 (defparameter *packets* nil)
 
 (define-condition Invalid-packet (error)
-  ((message :initarg :message
-            :reader message)
+  ((message :initarg :message)
    (data :initarg :data
-         :initform nil
-         :reader data)
-   (socket :initarg :socket
-           :reader socket)))
+         :initform nil)
+   (connection :initarg :connection)))
 
 (defun make-packet-definition (id structure processor)
   (list id structure processor))
@@ -27,8 +24,7 @@
   "Structure format (name-for-binding type)."
   `(progn
      ,(when body
-        `(defun ,name ,(append '(socket)
-                               (mapcar #'second structure))
+        `(defun ,name ,(append '(connection) (mapcar #'second structure))
            (declare (ignorable socket))
            ,@body))
      (pushnew (make-packet-definition ,id
@@ -85,12 +81,63 @@
 (defun make-keep-alive-packet ()
   (encode-packet 'keep-alive `((:integer ,(random (1- (ash 2 15)))))))
 
-(defun process-packet (socket packet)
-  (destructuring-bind (packet-id . packet-data) packet
+
+;;; Packets processing
+
+(defun subseq-shift (vector start end shift)
+  (subseq vector
+          (+ start shift)
+          (+ end shift)))
+
+(defun read-field (vector shift type modifier)
+  (if (or (and (eql type :character)
+               (eql modifier :array))
+          (and (eql type :string)
+               (null modifier)))
+    (let* ((prefix-size (get-type-size :length-prefix))
+           (prefix (subseq-shift vector 0 prefix-size shift))
+           (length (decode-data prefix :short nil))
+           (bytes-length (* (get-type-size :character) length)))
+      (values (decode-data (subseq-shift vector
+                                         prefix-size
+                                         (+ bytes-length prefix-size)
+                                         shift)
+                           :string
+                           nil)
+              (+ prefix-size bytes-length)))
+    (let ((size (get-type-size type)))
+      (values (decode-data (subseq-shift vector
+                                         0
+                                         size
+                                         shift)
+                           type
+                           modifier)
+              size))))
+
+(defun read-typedef (vector shift type-definition)
+  (if (listp type-definition)
+    (destructuring-bind (modifier type) type-definition
+      (read-field vector shift type modifier))
+    (read-field vector shift type-definition nil)))
+
+(defun read-packet-from-vector (vector)
+  (let* ((packet-id (svref vector 0))
+         (packet (subseq vector 1))
+         (packet-structure (packet-definition-structure (get-packet-definition packet-id))))
+    (cons packet-id
+          (iter (for field in packet-structure)
+                (for shift first 0 then (+ shift length))
+                (for (data length)
+                     next (multiple-value-list (read-typedef packet shift field)))
+                (collecting data)))))
+
+(defun process-packet (connection vector)
+  (destructuring-bind (packet-id . packet-data)
+      (read-packet-from-vector vector)
     (let ((packet-processor (packet-definition-processor (get-packet-definition packet-id))))
       (if packet-processor
-        (apply packet-processor socket packet-data)
+        (apply packet-processor connection packet-data)
         (error 'Invalid-packet
-               :message "Dunno what is this shit"
-               :socket socket
+               :message "Dunno what is this shit."
+               :connection connection
                :data packet-id)))))

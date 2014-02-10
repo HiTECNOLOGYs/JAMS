@@ -1,9 +1,11 @@
 (defpackage :jams
   (:use :cl
         :flexi-streams
-        :usocket
         :ieee-floats
         :lparallel
-        :lparallel.queue
         :cl-store
-        :bordeaux-threads))
+        :bordeaux-threads
+        :alexandria
+        :anaphora
+        :iterate)
+  (:export :main))

@@ -7,7 +7,11 @@
                :lparallel
                :bordeaux-threads
                :salza2
-               :cl-store)
+               :cl-store
+               :alexandria
+               :anaphora
+               :trivial-garbage
+               :iterate)
   :pathname "src/"
   :serial t
   :components ((:file "packages")
