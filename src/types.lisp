@@ -17,32 +17,32 @@
     it
     0))
 
-(defun two-bytes-to-fixnum (vector-of-four)
+(defun two-bytes-to-fixnum (vector)
   (let ((unsigned 0))
-    (setf (ldb (byte 8 0) unsigned) (aref vector-of-four 0))
-    (setf (ldb (byte 8 8) unsigned) (aref vector-of-four 1))
+    (setf (ldb (byte 8 0) unsigned) (aref vector 0))
+    (setf (ldb (byte 8 8) unsigned) (aref vector 1))
     (logior unsigned
             (- (mask-field (byte 1 15) unsigned)))))
 
-(defun four-bytes-to-fixnum (vector-of-four)
+(defun four-bytes-to-fixnum (vector)
   (let ((unsigned 0))
-    (setf (ldb (byte 8 0) unsigned) (aref vector-of-four 0))
-    (setf (ldb (byte 8 8) unsigned) (aref vector-of-four 1))
-    (setf (ldb (byte 8 16) unsigned) (aref vector-of-four 2))
-    (setf (ldb (byte 8 24) unsigned) (aref vector-of-four 3))
+    (setf (ldb (byte 8 0) unsigned) (aref vector 0))
+    (setf (ldb (byte 8 8) unsigned) (aref vector 1))
+    (setf (ldb (byte 8 16) unsigned) (aref vector 2))
+    (setf (ldb (byte 8 24) unsigned) (aref vector 3))
     (logior unsigned
             (- (mask-field (byte 1 31) unsigned)))))
 
-(defun eight-bytes-to-fixnum (vector-of-four)
+(defun eight-bytes-to-fixnum (vector)
   (let ((unsigned 0))
-    (setf (ldb (byte 8 0) unsigned) (aref vector-of-four 0))
-    (setf (ldb (byte 8 8) unsigned) (aref vector-of-four 1))
-    (setf (ldb (byte 8 16) unsigned) (aref vector-of-four 2))
-    (setf (ldb (byte 8 24) unsigned) (aref vector-of-four 3))
-    (setf (ldb (byte 8 32) unsigned) (aref vector-of-four 0))
-    (setf (ldb (byte 8 40) unsigned) (aref vector-of-four 1))
-    (setf (ldb (byte 8 48) unsigned) (aref vector-of-four 2))
-    (setf (ldb (byte 8 56) unsigned) (aref vector-of-four 3))
+    (setf (ldb (byte 8 0) unsigned) (aref vector 0))
+    (setf (ldb (byte 8 8) unsigned) (aref vector 1))
+    (setf (ldb (byte 8 16) unsigned) (aref vector 2))
+    (setf (ldb (byte 8 24) unsigned) (aref vector 3))
+    (setf (ldb (byte 8 32) unsigned) (aref vector 0))
+    (setf (ldb (byte 8 40) unsigned) (aref vector 1))
+    (setf (ldb (byte 8 48) unsigned) (aref vector 2))
+    (setf (ldb (byte 8 56) unsigned) (aref vector 3))
     (logior unsigned
             (- (mask-field (byte 1 63) unsigned)))))
 
@@ -96,7 +96,7 @@
                   :initial-element 0
                   :element-type '(unsigned-byte 8))
       (loop for shift from 0 upto (1- size) by 8
-            with result = (make-array (list size) 
+            with result = (make-array size
                                       :initial-element 0
                                       :fill-pointer 0
                                       :element-type '(unsigned-byte 8))
@@ -146,33 +146,10 @@
   (cond
     ((eql data t) #(1))
     ((eql data nil) #(0))
-    (t (error "Can't possibly imagine how I supposed to convert ~S to bytes array." data))))
-
-
-(defgeneric read-value (stream type modifier))
-
-(defmethod read-value (stream type (modifier (eql :array)))
-  (let ((prefix (read-value stream :short nil)))
-    (decode-data (read-bytes stream (* prefix (get-type-size type)))
-                 type
-                 modifier)))
-
-(defmethod read-value (stream (type (eql :string)) (modifier (eql nil)))
-  (read-value stream :character :array))
-
-(defmethod read-value (stream type modifier)
-  (decode-data (read-bytes stream (get-type-size type))
-               type
-               modifier))
-
-(defun read-typedef (stream type-definition)
-  (if (listp type-definition)
-      (destructuring-bind (modifier type) type-definition
-        (read-value stream type modifier))
-      (read-value stream type-definition nil)))
+    (t (error "Can't possibly imagine how am I supposed to convert ~S to something." data))))
 
 (defun encode-value (value)
   (if (listp value)
-      (destructuring-bind (modifier data) value
-        (encode-data data modifier))
-      (encode-data value nil)))
+    (destructuring-bind (modifier data) value
+      (encode-data data modifier))
+    (encode-data value nil)))
