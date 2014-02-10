@@ -154,7 +154,10 @@
     (declare (ignore fd event exception))
     (let ((client-socket (iolib:accept-connection socket :wait t)))
       (when client-socket
-        (multiple-value-bind (address port) (iolib:remote-host client-socket)
+        (let ((address (iolib:remote-host client-socket))
+              (port (iolib:remote-port client-socket)))
+          #+jams-debug (format t "[~A:~5D] Connected.~%"
+                               address port)
           (let* ((connection (open-connection address port client-socket))
                  (io-buffer (make-io-buffer delegator
                                             connection
