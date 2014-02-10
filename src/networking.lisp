@@ -223,9 +223,25 @@
     (close (connection-socket connection))
     (remhash address *connections*)))
 
-(defun init-network ()
-  (close-all-connections)
+(defun init-networking ()
   (setf *event-base* (make-instance 'iolib:event-base)))
 
+(defun cleanup-networking ()
+  (close-all-connections)
+  (when *event-base*
+    (close *event-base*)))
+
 (defun start-network-listener (port)
-  (start-listen port #'process-packet))
+  #+jams-debug (format t "Starting network listener on port ~D.~%"
+                       port)
+  (unwind-protect
+       (handler-case
+           (progn (init-networking)
+                  (start-listen port #'process-packet))
+         (sb-sys:interactive-interrupt ()
+           (format t "Caught ^C. Exiting.~%"))
+         (simple-error ()
+           (format t "Unknown error. Exiting.~%")))
+    (cleanup-networking)
+    #+jams-debug (format t "Stopped network listener on port ~D."
+                         port)))

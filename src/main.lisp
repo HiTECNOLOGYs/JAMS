@@ -5,7 +5,6 @@
 
   (fork #'server-main-thread :main-thread)
 
-  (init-network)
   (start-network-listener port)
   t)
 
