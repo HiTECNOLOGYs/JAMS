@@ -1,7 +1,7 @@
 Just Another Minecraft Server
 ==============================
 
-Written on 100% pure CL.
+Written in 100% pure CL.
 
 Dependencies
 -------------
