@@ -3,7 +3,7 @@
 (defun server (port)
   (setf *kernel* (make-kernel +max-number-of-threads+))
 
-  (fork #'server-main-thread :main-thread)
+  ;; (fork #'server-main-thread :main-thread)
 
   (start-network-listener port)
   t)

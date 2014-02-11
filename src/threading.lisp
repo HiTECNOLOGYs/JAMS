@@ -2,8 +2,15 @@
 
 (define-constant +max-number-of-threads+ 4)
 
-(defparameter *threads-messages-buses* (make-hash-table))
-(defparameter *tasks-queue*            (lparallel.queue:make-queue))
+;;; General stuff
+(defmacro with-delay (value &body body)
+  `(progn (sleep ,value)
+          ,@body))
+
+
+;;; Tasks queue
+
+(defparameter *tasks-queue* (lparallel.queue:make-queue))
 
 (defun clear-queue (queue)
   (lparallel.queue:with-locked-queue queue
@@ -27,43 +34,37 @@
         (iter (repeat task-count)
           (collecting (receive-result channel)))))))
 
-(defun get-thread-message-bus (thread-name)
-  (gethash thread-name *threads-messages-buses*))
 
-(defun (setf get-thread-message-bus) (new-value thread-name)
-  (setf (gethash thread-name *threads-messages-buses*)
-        new-value))
+;;; Threads managemement
 
-(defun send-message-to-thread (thread-name message)
-  (let ((queue (get-thread-message-bus thread-name)))
-    (lparallel.queue:with-locked-queue queue
-      (lparallel.queue:push-queue/no-lock message
-                                          queue))))
+(define-condition Thread-termination () ())
 
-(defun receive-message (thread-name)
-  (let ((queue (get-thread-message-bus thread-name)))
-    (lparallel.queue:with-locked-queue queue
-      (lparallel.queue:pop-queue/no-lock queue))))
+(defmacro defforkable (name args cleanup &body body)
+  `(setf (get ',name :function)
+         #'(lambda ,args
+             (handler-bind
+                 ((Thread-termination
+                    #'(lambda (condition)
+                        (declare (ignore condition))
+                        #+jams-debug (log-message :info
+                                                  ,(format nil "Stopping thread \"~S\"."
+                                                           name))
+                        ,cleanup)))
+               #+jams-debug ,(log-message :info (format nil "Starting thread \"~S\"." name))
+               ,@body))))
 
-(defun message-queue-empty-p (thread-name)
-  (let ((queue (get-thread-message-bus thread-name)))
-    (lparallel.queue:with-locked-queue queue
-      (lparallel.queue:queue-empty-p/no-lock queue))))
+(defun thread-running-p (name)
+  (let ((thread (get name :thread)))
+    (and (threadp thread)
+            (thread-alive-p thread))))
 
-(defun clear-message-queue (&optional thread-name)
-  (if thread-name
-      (clear-queue (get-thread-message-bus thread-name))
-      (clrhash *threads-messages-buses*)))
+(defun start-thread (name)
+  (let* ((function (get name :function))
+         (thread (make-thread function :name (symbol-name name))))
+    (setf (get name :thread) thread)
+    thread))
 
-(defun fork (function name)
-  (setf (get-thread-message-bus name) (lparallel.queue:make-queue))
-  (make-thread function :name (symbol-name name)))
-
-(defmacro with-delay ((value) &body body)
-  `(progn (sleep ,value)
-          ,@body))
-
-(defmacro with-message-queue ((message-var queue-name) &body body)
-  `(let ((,message-var (unless (message-queue-empty-p ,queue-name)
-                         (receive-message ,queue-name))))
-     ,@body))
+(defun stop-thread (name)
+  (when (thread-running-p name)
+    (interrupt-thread (get name :thread)
+                      #'signal 'Thread-termination)))

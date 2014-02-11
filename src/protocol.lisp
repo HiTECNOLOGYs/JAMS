@@ -90,6 +90,7 @@
   (write-sequence (make-packet 'kick
                                (encode-ping-response "61" "1.5.2" "MAMKU EBAL" "100" "32"))
                   (socket-stream socket))
+  #+nil
   (error 'drop-connection
          :socket socket
          :message "Kicking client after ping request"))
