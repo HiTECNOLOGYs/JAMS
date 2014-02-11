@@ -6,13 +6,6 @@
          for ,element = (row-major-aref ,array ,counter)
          do ,@body))
 
-(defun read-bytes (stream byte-count)
-  (loop repeat byte-count
-        with result = (make-array (list 0) :adjustable t :fill-pointer 0 :element-type '(unsigned-byte 8))
-        do (vector-push-extend (read-byte stream)
-                               result)
-        finally (return result)))
-
 (defun log-message (type message &rest arguments)
   (format t
           (case type
