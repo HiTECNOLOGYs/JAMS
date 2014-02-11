@@ -25,7 +25,8 @@
                  :accessor connection-data-handler)))
 
 (define-condition Close-connection ()
-  ((connection :initarg :connection)))
+  ((connection :initarg :connection)
+   (reason :initarg :reason)))
 
 (defgeneric dispatch-connection (connection received-data)
   (:method ((connection Connection) (received-data vector))

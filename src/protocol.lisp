@@ -86,14 +86,12 @@
 
 (defpacket (ping #xFE) ((:byte magic))
   (declare (ignore magic)) ; assuming magic is always 1
-  #+nil
-  (write-sequence (make-packet 'kick
-                               (encode-ping-response "61" "1.5.2" "MAMKU EBAL" "100" "32"))
-                  (socket-stream socket))
-  #+nil
-  (error 'drop-connection
-         :socket socket
-         :message "Kicking client after ping request"))
+  (send-data (make-packet 'kick
+                          (encode-ping-response "61" "1.5.2" "MAMKU EBAL" "100" "32"))
+             connection)
+  (error 'Close-connection
+         :connection connection
+         :reason "Kicking client after ping request"))
 
 (defpacket (client-settings #xCC) ((:string locale)
                                    (:byte view-distance)
