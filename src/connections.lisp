@@ -21,20 +21,25 @@
    (status :initform :opening
            :accessor connection-status)
    (client :accessor connection-client)
-   (dispatcher :initarg :dispatcher
-               :initform #'dispatch-connection
-               :accessor connection-dispatcher)))
+   (data-handler :initarg :data-handler
+                 :accessor connection-data-handler)))
 
-(defgeneric dispatch-connection (connection)
-  (:method ((connection Connection))
-    (handler-case
-      (case (connection-status connection)
-        (:opened
-         ;; Init connection here
-         )
-        (:running
-         ;; Process player actions here
-         )))))
+(define-condition Close-connection ()
+  ((connection :initarg :connection)))
+
+(defgeneric dispatch-connection (connection received-data)
+  (:method ((connection Connection) (received-data vector))
+    (case (connection-status connection)
+      (:opened
+       ;; Init connection here
+       )
+      (:running
+       ;; Do anything necessary to keep connection running.
+       ;; It is also possible to initiate clean-up, if necessary.
+       ))
+    (when (slot-boundp connection 'data-handler)
+      (funcall (connection-data-handler connection)
+               connection received-data))))
 
 (defgeneric connection-closed-p (connection)
   (:method ((connection Connection))
@@ -68,9 +73,10 @@
                  *connections*)
         new-value))
 
-(defun open-connection (remote-address remote-port socket)
+(defun open-connection (remote-address remote-port socket data-handler)
   (setf (get-connection remote-address remote-port)
         (make-instance 'Connection
                        :remote-address remote-address
                        :remote-port remote-port
+                       :data-handler data-handler
                        :socket socket)))

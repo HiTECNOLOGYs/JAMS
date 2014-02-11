@@ -4,7 +4,7 @@
 
 ;;; I/O buffer
 
-(defun make-io-buffer (delegator connection disconnector
+(defun make-io-buffer (connection disconnector
                        &key (max-size 16384))
   (let ((host (connection-remote-address connection))
         (port (connection-remote-port connection))
@@ -39,7 +39,7 @@
                                              host port bytes-read)
                    (incf read-index bytes-read))
 
-                 (funcall delegator connection buffer)
+                 (dispatch-connection connection buffer)
 
                  (if (lparallel.queue:queue-empty-p data-queue)
                    (progn
@@ -68,6 +68,12 @@
                ;; and close socket.
                #+jams-debug (log-message :info "[~A:~5D] End of file. Closing socket."
                                          host port)
+               (terminate))
+
+             (close-connection ()
+               ;; Server initiated connection closing. Executing.
+               #+jams-debug (log-message :warning "[~A:~5D] Closing connection #~D"
+                                         host port (connection-id connection))
                (terminate))))
 
          (write-bytes (fd event exception)
@@ -148,7 +154,7 @@
 
 ;;; Incoming connections handler
 
-(defun make-listener-handler (delegator socket)
+(defun make-listener-handler (socket)
   "Returns closure that accepts and processes all incoming connections."
   (lambda (fd event exception)
     (declare (ignore fd event exception))
@@ -158,10 +164,8 @@
               (port (iolib:remote-port client-socket)))
           #+jams-debug (log-message :info "[~A:~5D] Connected."
                                     address port)
-          (let* ((connection (open-connection address port client-socket))
-                 (io-buffer (make-io-buffer delegator
-                                            connection
-                                            (make-disconnectior client-socket))))
+          (let* ((connection (open-connection address port client-socket #'process-packet))
+                 (io-buffer (make-io-buffer connection (make-disconnectior client-socket))))
             (iolib:set-io-handler *event-base*
                                   (iolib:socket-os-fd client-socket)
                                   :read
@@ -174,7 +178,7 @@
 
 ;;; Listener
 
-(defun start-listen (port data-handler)
+(defun start-listen (port)
   "Starts listening for incoming connections."
   (iolib:with-open-socket
       (server-socket :connect :passive
@@ -199,8 +203,7 @@
     (iolib:set-io-handler *event-base*
                           (iolib:socket-os-fd server-socket)
                           :read
-                          (make-listener-handler data-handler
-                                                 server-socket))
+                          (make-listener-handler server-socket))
 
     #+jams-debug (log-message :info "Starting dispatching requests.")
     (handler-case
@@ -237,7 +240,7 @@
   (unwind-protect
        (handler-case
            (progn (init-networking)
-                  (start-listen port #'process-packet))
+                  (start-listen port))
          (sb-sys:interactive-interrupt ()
            (log-message :info "Caught ^C. Exiting."))
          (simple-error ()
