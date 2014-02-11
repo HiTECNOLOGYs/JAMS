@@ -35,8 +35,8 @@
                    (when (zerop bytes-read)
                      (error 'end-of-file))
 
-                   #+jams-debug (format t "[~A:~5D] Read ~D bytes.~%"
-                                        host port bytes-read)
+                   #+jams-debug (log-message :info "[~A:~5D] Read ~D bytes."
+                                             host port bytes-read)
                    (incf read-index bytes-read))
 
                  (funcall delegator connection buffer)
@@ -59,15 +59,15 @@
 
              (iolib:socket-connection-reset-error ()
                ;; Connection was reseted by client. Closing socket.
-               #+jams-debug (format t "[~A:~5D] Connection reset. Closing socket.~%"
-                                    host port)
+               #+jams-debug (log-message :info "[~A:~5D] Connection reset. Closing socket."
+                                         host port)
                (funcall disconnector host port :close))
 
              (end-of-file ()
                ;; Client sent EOF. Write all we have (if we have something)
                ;; and close socket.
-               #+jams-debug (format t "[~A:~5D] End of file. Closing socket.~%"
-                                    host port)
+               #+jams-debug (log-message :info "[~A:~5D] End of file. Closing socket."
+                                         host port)
                (terminate))))
 
          (write-bytes (fd event exception)
@@ -80,8 +80,8 @@
                            (for data next (lparallel.queue:pop-queue/no-lock data-queue))
                            (after-each
                             (iolib:send-to socket data)
-                            (format t "[~A:~5D] Send ~D bytes.~%"
-                                    host port (length data)))))
+                            #+jams-debug (log-message :info "[~A:~5D] Send ~D bytes."
+                                                      host port (length data)))))
 
                    (if (connection-closed-p connection)
                      (funcall disconnector host port :close)
@@ -97,20 +97,20 @@
 
              (iolib:socket-connection-reset-error ()
                ;; Connection was reseted by client. Closing socket.
-               #+jams-debug (format t "[~A:~5D] Connection reset. Closing socket.~%"
-                                           host port)
+               #+jams-debug (log-message :info "[~A:~5D] Connection reset. Closing socket."
+                                         host port)
                (funcall disconnector host port :close))
 
              (isys:ewouldblock ()
                ;; Say 'Oops' and ignore this.
-               #+jams-debug (format t "[~A:~5D] OOPS~%"
-                                           host port)
+               #+jams-debug (log-message :error "[~A:~5D] OOPS."
+                                         host port)
                nil)
 
              (isys:epipe ()
                ;; Client doesn't want to accept our data. Fuck you then, client.
-               #+jams-debug (format t "[~A:~5D] End of pipe.~%"
-                                           host port)
+               #+jams-debug (log-message :warning "[~A:~5D] End of pipe."
+                                         host port)
                (funcall disconnector host port :close)))))
 
       (lambda (message)
@@ -156,8 +156,8 @@
       (when client-socket
         (let ((address (iolib:remote-host client-socket))
               (port (iolib:remote-port client-socket)))
-          #+jams-debug (format t "[~A:~5D] Connected.~%"
-                               address port)
+          #+jams-debug (log-message :info "[~A:~5D] Connected."
+                                    address port)
           (let* ((connection (open-connection address port client-socket))
                  (io-buffer (make-io-buffer delegator
                                             connection
@@ -181,28 +181,28 @@
                      :address-family :internet
                      :type :stream
                      :ipv6 nil)
-    #+jams-debug (format t "Created server socket ~A with FD=~D~%"
-                         server-socket (iolib:socket-os-fd server-socket))
+    #+jams-debug (log-message :info "Created server socket ~A with FD=~D"
+                              server-socket (iolib:socket-os-fd server-socket))
 
     (iolib:bind-address server-socket iolib:+ipv4-unspecified+
                         :port port
                         :reuse-addr t)
-    #+jams-debug (format t "Bound server socket: ~A~%"
-                         server-socket)
+    #+jams-debug (log-message :info "Bound server socket: ~A"
+                              server-socket)
 
-    #+jams-debug (format t "Starting listening on ~A:~D.~%"
-                         (iolib:local-host server-socket)
-                         (iolib:local-port server-socket))
+    #+jams-debug (log-message :info "Starting listening on ~A:~D."
+                              (iolib:local-host server-socket)
+                              (iolib:local-port server-socket))
     (iolib:listen-on server-socket :backlog 5)
 
-    #+jams-debug (format t "Setting read handler.~%")
+    #+jams-debug (log-message :info "Setting read handler.")
     (iolib:set-io-handler *event-base*
                           (iolib:socket-os-fd server-socket)
                           :read
                           (make-listener-handler data-handler
                                                  server-socket))
 
-    #+jams-debug (format t "Starting dispatching requests.~%")
+    #+jams-debug (log-message :info "Starting dispatching requests.")
     (handler-case
         (iolib:event-dispatch *event-base*)
 
@@ -232,16 +232,16 @@
     (close *event-base*)))
 
 (defun start-network-listener (port)
-  #+jams-debug (format t "Starting network listener on port ~D.~%"
-                       port)
+  #+jams-debug (log-message :info "Starting network listener on port ~D."
+                            port)
   (unwind-protect
        (handler-case
            (progn (init-networking)
                   (start-listen port #'process-packet))
          (sb-sys:interactive-interrupt ()
-           (format t "Caught ^C. Exiting.~%"))
+           (log-message :info "Caught ^C. Exiting."))
          (simple-error ()
-           (format t "Unknown error. Exiting.~%")))
+           (log-message :error "Unknown error. Exiting.")))
     (cleanup-networking)
-    #+jams-debug (format t "Stopped network listener on port ~D."
-                         port)))
+    #+jams-debug (log-message :info "Stopped network listener on port ~D."
+                              port)))

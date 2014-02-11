@@ -1,8 +1,7 @@
 (in-package :jams)
 
 (defpacket (keep-alive #x00) ((:integer id))
-  (format t "Keep alive: ~D~%" id)
-  ;; (keep-alive-client socket)
+  ;; (keep-alive-client connection)
   )
 
 (defpacket (login-request #x01) ((:integer entity-id)
@@ -15,8 +14,8 @@
 
 (defun send-login-packets (connection)
   "Sends packets required to log in."
-  #+jams-debug (format t "Sending data to client #~D~%"
-                       (connection-id connection))
+  #+jams-debug (log-message :info "Sending data to client #~D"
+                            (connection-id connection))
   (send-data (encode-packet 'login-request
                             '((:integer 228)
                               "default"

@@ -12,3 +12,14 @@
         do (vector-push-extend (read-byte stream)
                                result)
         finally (return result)))
+
+(defun log-message (type message &rest arguments)
+  (apply #'format t
+         (case type
+           (:info     "[INFO]       ~?~%")
+           (:warning  "[WARNING]    ~?~%")
+           (:error    "[ERROR]      ~?~%")
+           (:critical "[!CRITICAL!] ~?~%")
+           (otherwise (error "Unknown log message type: ~S" type)))
+         message
+         arguments))
