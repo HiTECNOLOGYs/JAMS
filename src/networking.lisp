@@ -238,7 +238,7 @@
   (when *event-base*
     (close *event-base*)))
 
-(defun start-network-listener (port)
+(defthread network-listener (port)
   #+jams-debug (log-message :info "Starting network listener on port ~D."
                             port)
   (unwind-protect

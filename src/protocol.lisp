@@ -1,5 +1,8 @@
 (in-package :jams)
 
+(defun keep-alive-client (connection)
+  (send-data (make-keep-alive-packet) connection))
+
 (defpacket (keep-alive #x00) ((:integer id))
   ;; (keep-alive-client connection)
   )
