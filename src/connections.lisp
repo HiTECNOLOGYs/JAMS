@@ -33,7 +33,7 @@
     (case (connection-status connection)
       (:opened
        ;; Init connection here
-       )
+       (setf (connection-status connection) :running))
       (:running
        ;; Do anything necessary to keep connection running.
        ;; It is also possible to initiate clean-up, if necessary.
