@@ -39,7 +39,7 @@
 
 (define-condition Thread-termination () ())
 
-(defmacro defforkable (name args cleanup &body body)
+(defmacro defthread (name args cleanup &body body)
   `(setf (get ',name :function)
          #'(lambda ,args
              (handler-bind
