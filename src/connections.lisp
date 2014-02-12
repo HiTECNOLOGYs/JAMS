@@ -3,6 +3,10 @@
 (defvar *connections* (make-hash-table :test 'equal))
 (defvar *next-connection-id* 0)
 
+;;; Waiting for a minute before closing connection
+(define-constant +max-no-keep-alive-time+ (* 1 60)
+  :test #'=)
+
 (defun gen-connection-id ()
   (prog1 *next-connection-id*
     (incf *next-connection-id*)))
@@ -21,6 +25,8 @@
    (status :initform :opening
            :accessor connection-status)
    (client :accessor connection-client)
+   (last-keep-alive-time :initform (get-universal-time)
+                         :accessor connection-last-keep-alive-time)
    (data-handler :initarg :data-handler
                  :accessor connection-data-handler)))
 
@@ -32,12 +38,13 @@
   (:method ((connection Connection) (received-data vector))
     (case (connection-status connection)
       (:opened
-       ;; Init connection here
-       (setf (connection-status connection) :running))
+       ;; (setf (connection-status connection) :running)
+       )
       (:running
-       ;; Do anything necessary to keep connection running.
-       ;; It is also possible to initiate clean-up, if necessary.
-       ))
+       (when (< +max-no-keep-alive-time+
+                (- (connection-last-keep-alive-time connection)
+                   (get-universal-time)))
+         (terminate-connection connection))))
     (when (slot-boundp connection 'data-handler)
       (funcall (connection-data-handler connection)
                connection received-data))))

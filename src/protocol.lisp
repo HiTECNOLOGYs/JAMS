@@ -4,8 +4,8 @@
   (send-data (make-keep-alive-packet) connection))
 
 (defpacket (keep-alive #x00) ((:integer id))
-  ;; (keep-alive-client connection)
-  )
+  (declare (ignore id))
+  (setf (connection-last-keep-alive-time connection) (get-universal-time)))
 
 (defpacket (login-request #x01) ((:integer entity-id)
                                  (:string level-type)
@@ -110,4 +110,7 @@
   (format t "***PLUGIN MESSAGE***~%Channel: ~A~%Data: ~A~%"
           channel data))
 
-(defpacket (kick #xFF) ((:string message)))
+(defpacket (kick #xFF) ((:string message))
+  #+jams-debug (log-message :info "Terminating connection #~D. (~A)"
+                            (connection-id connection) message)
+  (terminate-connection connection))

@@ -4,16 +4,14 @@
 
 ;;; I/O buffer
 
-(defun make-io-buffer (connection disconnector
-                       &key (max-size 16384))
+(defun make-io-buffer (connection disconnector &key (max-size 16384))
   (let ((host (connection-remote-address connection))
         (port (connection-remote-port connection))
         (data-queue (connection-data-queue connection))
         (socket (connection-socket connection))
         (buffer (make-array max-size :element-type 'unsigned-byte))
         (read-handler-set? nil)
-        (write-handler-set? nil)
-        (read-index 0))
+        (write-handler-set? nil))
     (labels
         ((terminate ()
            (if (lparallel.queue:queue-empty-p data-queue)
@@ -29,30 +27,21 @@
                  (multiple-value-bind (buf bytes-read)
                      (iolib:receive-from socket
                                          :buffer buffer
-                                         :start read-index
                                          :end max-size)
                    (declare (ignore buf))
                    (when (zerop bytes-read)
-                     (error 'end-of-file))
-
-                   #+jams-debug (log-message :info "[~A:~5D] Read ~D bytes."
-                                             host port bytes-read)
-                   (incf read-index bytes-read))
+                     (error 'end-of-file)))
 
                  (dispatch-connection connection buffer)
 
-                 (if (lparallel.queue:queue-empty-p data-queue)
-                   (progn
-                     (funcall disconnector host port :read)
-                     (setf read-handler-set? nil))
-                   (progn
-                     (unless write-handler-set?
-                       (iolib:set-io-handler *event-base*
-                                             (iolib:socket-os-fd socket)
-                                             :write
-                                             #'write-bytes)
-                       (setf write-handler-set? t))
-                     (write-bytes fd :write nil)))
+                 (unless (lparallel.queue:queue-empty-p data-queue)
+                   (unless write-handler-set?
+                     (iolib:set-io-handler *event-base*
+                                           (iolib:socket-os-fd socket)
+                                           :write
+                                           #'write-bytes)
+                     (setf write-handler-set? t))
+                   (write-bytes fd :write nil))
 
                  (when (connection-closed-p connection)
                    (terminate)))
@@ -89,15 +78,12 @@
                      (iter (until (lparallel.queue:queue-empty-p/no-lock data-queue))
                            (for data next (lparallel.queue:pop-queue/no-lock data-queue))
                            (after-each
-                            (iolib:send-to socket data)
-                            #+jams-debug (log-message :info "[~A:~5D] Send ~D bytes."
-                                                      host port (length data)))))
+                            (iolib:send-to socket data))))
 
                    (if (connection-closed-p connection)
                      (funcall disconnector host port :close)
                      (progn (funcall disconnector host port :write)
-                            (setf write-handler-set? nil
-                                  read-index 0)
+                            (setf write-handler-set? nil)
                             (unless read-handler-set?
                               (iolib:set-io-handler *event-base*
                                                     (iolib:socket-os-fd socket)
@@ -142,7 +128,8 @@
   "Returns closure that properly closes socket and removes IO handlers."
   (lambda (host port &rest events)
     (let ((fd (iolib:socket-os-fd socket)))
-      (if (not (intersection '(:read :write :error) events))
+      (unless (null fd)
+        (if (not (intersection '(:read :write :error) events))
           (iolib:remove-fd-handlers *event-base* fd :read t :write t :error t)
           (progn
             (when (member :read events)
@@ -151,9 +138,9 @@
               (iolib:remove-fd-handlers *event-base* fd :write t))
             (when (member :error events)
               (iolib:remove-fd-handlers *event-base* fd :error t))))
-      (when (member :close events)
-        (close socket)
-        (delete-connection (get-connection host port))))))
+        (when (member :close events)
+          (close socket)
+          (delete-connection (get-connection host port)))))))
 
 
 ;;; Incoming connections handler
@@ -178,7 +165,6 @@
                                   (iolib:socket-os-fd client-socket)
                                   :write
                                   (funcall io-buffer :write))))))))
-
 
 ;;; Listener
 
@@ -248,8 +234,9 @@
                         port))
          (sb-sys:interactive-interrupt ()
            (log-message :info "Caught ^C. Exiting."))
-         (simple-error ()
-           (log-message :error "Unknown error. Exiting.")))
+         ;; (simple-error ()
+         ;;   (log-message :error "Unknown error. Exiting."))
+         )
     (cleanup-networking)
     #+jams-debug (log-message :info "Stopped network listener on port ~D."
                               port)))

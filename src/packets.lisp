@@ -136,7 +136,8 @@
       (read-packet-from-vector vector)
     (let ((packet-processor (packet-definition-processor (get-packet-definition packet-id))))
       (if packet-processor
-        (apply packet-processor connection packet-data)
+        (when (fboundp packet-processor)
+          (apply packet-processor connection packet-data))
         (error 'Invalid-packet
                :message "Dunno what is this shit."
                :connection connection
