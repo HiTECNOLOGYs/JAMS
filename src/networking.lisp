@@ -227,7 +227,7 @@
 
 (defun close-all-connections ()
   (iter (for (address connection) in-hashtable *connections*)
-    (close (connection-socket connection))
+    (close (connection-socket connection) :abort t)
     (remhash address *connections*)))
 
 (defun init-networking ()
@@ -238,13 +238,14 @@
   (when *event-base*
     (close *event-base*)))
 
-(defthread network-listener (port)
-  #+jams-debug (log-message :info "Starting network listener on port ~D."
-                            port)
+(defthread network-listener (port) ()
   (unwind-protect
        (handler-case
            (progn (init-networking)
                   (start-listen port))
+         (thread-termination ()
+           (log-message :info "Stopping network listener on port ~D."
+                        port))
          (sb-sys:interactive-interrupt ()
            (log-message :info "Caught ^C. Exiting."))
          (simple-error ()

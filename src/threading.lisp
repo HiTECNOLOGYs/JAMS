@@ -50,7 +50,7 @@
                                                   ,(format nil "Stopping thread \"~S\"."
                                                            name))
                         ,cleanup)))
-               #+jams-debug ,(log-message :info (format nil "Starting thread \"~S\"." name))
+               #+jams-debug (log-message :info ,(format nil "Starting thread \"~S\"." name))
                ,@body))))
 
 (defun thread-running-p (name)
