@@ -70,10 +70,14 @@
                                          host port)
                (terminate))
 
-             (close-connection ()
+             (close-connection (condition)
                ;; Server initiated connection closing. Executing.
-               #+jams-debug (log-message :warning "[~A:~5D] Closing connection #~D"
-                                         host port (connection-id connection))
+               #+jams-debug
+               (with-slots (connection reason) condition
+                 (log-message :info "[~A:~5D] Closing connection #~D. (~A)"
+                              host port
+                              (connection-id connection)
+                              reason))
                (terminate))))
 
          (write-bytes (fd event exception)
