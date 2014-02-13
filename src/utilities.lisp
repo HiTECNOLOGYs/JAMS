@@ -1,8 +1,8 @@
 (in-package :jams)
 
-(defmacro doarray ((array counter element &optional size increment) &body body)
+(defmacro doarray ((array counter element &key size increment) &body body)
   `(iter
-     (for ,counter to ,(1- (if size (symbol-value size) (array-total-size array)))
+     (for ,counter to (1- ,(or size `(array-total-size ,array)))
           by ,(if increment increment 1))
      (for ,element next (row-major-aref ,array ,counter))
      (after-each ,@body)))
