@@ -25,6 +25,10 @@
    (status :initform :opening
            :accessor connection-status)
    (client :accessor connection-client)
+   (keep-alive-received? :initform nil
+                         :accessor connection-keep-alive-received-p)
+   (last-keep-alive-id :initform 0
+                       :accessor connection-last-keep-alive-id)
    (last-keep-alive-time :initform (get-universal-time)
                          :accessor connection-last-keep-alive-time)
    (data-handler :initarg :data-handler

@@ -79,7 +79,9 @@
                (encode-packet-data data)))
 
 (defun make-keep-alive-packet ()
-  (encode-packet 'keep-alive `((:integer ,(random (1- (ash 2 15)))))))
+  (let ((id (random (1- (ash 2 15)))))
+    (values (encode-packet 'keep-alive `((:integer ,id)))
+            id)))
 
 
 ;;; Packets processing

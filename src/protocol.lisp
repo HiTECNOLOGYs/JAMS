@@ -1,11 +1,17 @@
 (in-package :jams)
 
 (defun keep-alive-client (connection)
-  (send-data (make-keep-alive-packet) connection))
+  (when (connection-keep-alive-received-p connection)
+    (multiple-value-bind (packet id)
+        (make-keep-alive-packet)
+      (setf (connection-last-keep-alive-id connection) id
+            (connection-keep-alive-received-p connection) nil)
+      (send-data packet connection))))
 
 (defpacket (keep-alive #x00) ((:integer id))
-  (declare (ignore id))
-  (setf (connection-last-keep-alive-time connection) (get-universal-time)))
+  (when (= (connection-last-keep-alive-id connection) id)
+    (setf (connection-last-keep-alive-time connection) (get-universal-time)
+          (connection-keep-alive-received-p connection) t)))
 
 (defpacket (login-request #x01) ((:integer entity-id)
                                  (:string level-type)
