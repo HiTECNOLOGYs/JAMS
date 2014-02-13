@@ -1,24 +1,12 @@
 (in-package :jams)
 
-(defparameter *packets* nil)
+(defparameter *packets* (make-hash-table))
 
 (define-condition Invalid-packet (error)
   ((message :initarg :message)
    (data :initarg :data
          :initform nil)
    (connection :initarg :connection)))
-
-(defun make-packet-definition (id structure processor)
-  (list id structure processor))
-
-(defun packet-definition-id (packet-definition)
-  (first packet-definition))
-
-(defun packet-definition-structure (packet-definition)
-  (second packet-definition))
-
-(defun packet-definition-processor (packet-definition)
-  (third packet-definition))
 
 (defmacro defpacket ((name id) structure &body body)
   "Structure format (name-for-binding type)."
@@ -27,20 +15,18 @@
         `(defun ,name ,(cons 'connection (mapcar #'second structure))
            (declare (ignorable connection))
            ,@body))
-     (pushnew (make-packet-definition ,id
-                                      ',(mapcar #'first structure)
-                                      ',name)
-              *packets*
-              :key #'first
-              :test #'=)))
+     (setf (gethash ,id *packets*) ',name
+           (get ',name :structure) ',(mapcar #'first structure)
+           (get ',name :id)         ,id)))
 
-(defun get-packet-definition (id)
-  (assoc id *packets*
-         :test #'=))
+(defun get-packet-name (id)
+  (gethash id *packets*))
 
-(defun get-packet-definition-by-name (name)
-  (find name *packets*
-        :key #'packet-definition-processor))
+(defun packet-definition-id (name)
+  (get name :id))
+
+(defun packet-definition-structure (name)
+  (get name :structure))
 
 (defun encode-ping-response (protocol-version server-version motd player-count max-players)
   (concatenate 'vector
@@ -69,14 +55,13 @@
           :key #'encode-value))
 
 (defun make-packet (name data)
-  (let ((packet-id (packet-definition-id (get-packet-definition-by-name name))))
+  (let ((packet-id (packet-definition-id name)))
     (concatenate 'vector
                  (vector packet-id)
                  data)))
 
 (defun encode-packet (name data)
-  (make-packet name
-               (encode-packet-data data)))
+  (make-packet name (encode-packet-data data)))
 
 (defun make-keep-alive-packet ()
   (let ((id (random (1- (ash 2 15)))))
@@ -125,7 +110,7 @@
 (defun read-packet-from-vector (vector)
   (let* ((packet-id (svref vector 0))
          (packet (subseq vector 1))
-         (packet-structure (packet-definition-structure (get-packet-definition packet-id))))
+         (packet-structure (packet-definition-structure (get-packet-name packet-id))))
     (cons packet-id
           (iter (for field in packet-structure)
                 (for shift first 0 then (+ shift length))
@@ -136,7 +121,7 @@
 (defun process-packet (connection vector)
   (destructuring-bind (packet-id . packet-data)
       (read-packet-from-vector vector)
-    (let ((packet-processor (packet-definition-processor (get-packet-definition packet-id))))
+    (let ((packet-processor (get-packet-name packet-id)))
       (if packet-processor
         (when (fboundp packet-processor)
           (apply packet-processor connection packet-data))
