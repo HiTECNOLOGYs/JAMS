@@ -51,29 +51,21 @@
 
 (defpacket (handshake #x02) ((:byte prot-id) (:string nick) (:string address) (:integer port))
   #+jams-debug
-  (format t "***HANDSHAKE***~%Protocol ID: ~D~%Nickname: ~A~%Address: ~A~%Port: ~A~%"
-          prot-id
-          nick
-          address
-          port)
+  (log-message :info "Player connected: ~A (protocol:~A) (~A:~D)"
+               nick prot-id address port)
   (send-login-packets connection))
 
 (defpacket (spawn-position #x06) ((:integer x) (:integer y) (:integer z)))
 
-(defpacket (player #x0A) ((:bool on-ground?))
-  #+jams-debug
-  (format t "***PLAYER***~%On ground: ~A~%"
-          on-ground?))
+(defpacket (player #x0A) ((:bool on-ground?)))
 
-(defpacket (player-position #x0B) ((:double x) (:double y) (:double stance) (:double z) (:bool on-ground?))
-  #+jams-debug
-  (format t "***PLAYER POSITION***~%X: ~D~%Y: ~D~%Stance: ~D~%Z: ~D~%On ground: ~A~%"
-          x y stance z on-ground?))
+(defpacket (player-position #x0B) ((:double x)
+                                   (:double y)
+                                   (:double stance)
+                                   (:double z)
+                                   (:bool on-ground?)))
 
-(defpacket (player-look #x0C) ((:float yaw) (:float pitch) (:bool on-ground?))
-  #+jams-debug
-  (format t "***PLAYER LOOK***~%Yaw: ~8$~%Pitch: ~8$~%On ground: ~A~%"
-          yaw pitch on-ground?))
+(defpacket (player-look #x0C) ((:float yaw) (:float pitch) (:bool on-ground?)))
 
 (defpacket (player-position-and-look #x0D) ((:double x)
                                             (:double y)
@@ -81,17 +73,14 @@
                                             (:double z)
                                             (:float yaw)
                                             (:float pitch)
-                                            (:bool on-ground?))
-  #+jams-debug
-  (format t "***PLAYER POSITION AND LOOK***~%X: ~8$~%Y: ~8$~%Stance: ~8$~%Z: ~8$~%Yaw: ~4$~%Pitch: ~4$~%On gound: ~A~%"
-          x y stance z yaw pitch on-ground?))
+                                            (:bool on-ground?)))
 
-(defpacket (chunk-data #x33) ((:integer x) (:integer z) (:bool ground-up-continuous) ((:unsigned :short) )))
+(defpacket (chunk-data #x33) ((:integer x)
+                              (:integer z)
+                              (:bool ground-up-continuous)
+                              (:unsigned :short)))
 
-(defpacket (client-statuses #xCD) ((:byte payload))
-  #+jams-debug
-  (format t "***CLIENT STATUSES***Payload: ~D~%"
-          payload))
+(defpacket (client-statuses #xCD) ((:byte payload)))
 
 (defpacket (ping #xFE) ((:byte magic))
   (declare (ignore magic)) ; assuming magic is always 1
@@ -106,15 +95,9 @@
                                    (:byte view-distance)
                                    (:byte chat-settings)
                                    (:byte difficulty)
-                                   (:bool show-cape))
-  #+jams-debug
-  (format t "***CLIENT SETTINGS***~%Locale: ~A~%View distance: ~D~%Chat-settings: ~D~%Difficulty: ~D~%Show-cape: ~D~%"
-          locale view-distance chat-settings difficulty show-cape))
+                                   (:bool show-cape)))
 
-(defpacket (plugin-message #xFA) ((:string channel) ((:array :byte) data))
-  #+jams-debug
-  (format t "***PLUGIN MESSAGE***~%Channel: ~A~%Data: ~A~%"
-          channel data))
+(defpacket (plugin-message #xFA) ((:string channel) ((:array :byte) data)))
 
 (defpacket (kick #xFF) ((:string message))
   #+jams-debug (log-message :info "Terminating connection #~D. (~A)"
