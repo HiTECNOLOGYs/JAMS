@@ -92,19 +92,19 @@
 
 (defmethod encode-data ((data integer) (size integer))
   (if (zerop data)
-      (make-array (list size)
-                  :initial-element 0
-                  :element-type '(unsigned-byte 8))
-      (loop for shift from 0 upto (1- size) by 8
-            with result = (make-array size
-                                      :initial-element 0
-                                      :fill-pointer 0
-                                      :element-type '(unsigned-byte 8))
-            do (vector-push-extend (ldb (byte 8 shift) data)
-                                   result)
-            finally (progn (setf (fill-pointer result)
-                                 size)
-                           (return (reverse result))))))
+    (make-array size
+                :initial-element 0
+                :element-type '(unsigned-byte 8))
+    (iter
+      (for shift from 0 to (1- size))
+      (with result = (make-array size
+                                 :initial-element 0
+                                 :fill-pointer 0
+                                 :element-type '(unsigned-byte 8)))
+      (finally (progn (setf (fill-pointer result) size)
+                      (return (reverse result))))
+      (vector-push-extend (ldb (byte 8 (* shift 8)) data)
+                          result))))
 
 (defmethod encode-data ((data integer) (typespec (eql nil)))
   (encode-data data :byte))
