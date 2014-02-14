@@ -20,6 +20,8 @@
 (defun main ()
   ;; Returning exit codes in case somebody runs this from shell.
   ;; Otherwise, cosider using START-SERVER/STOP-SERVER directly.
-  (if (start-server 25565)
-    0
-    1))
+  (let ((server-return (start-server 25565)))
+    ;; Start interactive UI here
+    (if server-return
+      0
+      1)))
