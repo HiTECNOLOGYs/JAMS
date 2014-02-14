@@ -21,6 +21,7 @@
                (:file "protocol")
                (:file "threading")
                (:file "connections")
+               (:file "map")
                (:file "game")
                (:file "networking")
                (:file "main")))
