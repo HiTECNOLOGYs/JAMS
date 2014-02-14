@@ -7,9 +7,7 @@
     (setf stopped? t)
   (iter (until stopped?)
     (with-delay (/ 1 +ticks-per-second+)
-      (server-tick))
-    ;; Keeping clients alive
-    (keep-alive-everybody)))
+      (server-tick))))
 
 (defun keep-alive-everybody ()
   (iter (for (remote-address connection) in-hashtable *connections*)

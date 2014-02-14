@@ -3,13 +3,19 @@
 (defun start-server (port)
   (setf *kernel* (make-kernel +max-number-of-threads+))
 
-  (progn
-    ;; Starting main thread that processes all game events
-    (start-thread 'main-thread )
+  ;; Starting main thread that processes all game events
+  (start-thread 'main-thread )
 
-    ;; Starting network listener thread that accepts new connections
-    ;; and manages clients
-    (start-thread 'network-listener port))
+  ;; Starting network listener thread that accepts new connections
+  ;; and manages clients
+  (start-thread 'network-listener port)
+
+  ;; Starting timer that keeps clients alive
+  (schedule-timer "keep-clients-alive"
+                  #'keep-alive-everybody
+                  1
+                  :repeat-interval 1
+                  :thread (thread-thread 'network-listener))
   t)
 
 (defun stop-server ()
