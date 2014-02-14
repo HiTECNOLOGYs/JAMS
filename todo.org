@@ -1,0 +1,132 @@
+#+TITLE: JAMS
+#+AUTHOR: Mark Fedurin
+#+EMAIL: hitecnologys@gmail.com
+#+LANGUAGE: en
+#+OPTIONS: toc:2
+#+FILETAGS: :jams:projects:work:
+
+* 0.1 First working release
+*** TODO Packets
+***** DONE Keep Alive (0x00)
+***** DONE Login Request (0x01)
+***** DONE Handshake (0x02)
+***** TODO Chat Message (0x03)
+***** TODO Time Update (0x04)
+***** TODO Entity Equipment (0x05)
+***** TODO Spawn Position (0x06)
+***** TODO Use Entity (0x07)
+***** TODO Update Health (0x08)
+***** TODO Respawn (0x09)
+***** TODO Player (0x0A)
+***** TODO Player Position (0x0B)
+***** TODO Player Look (0x0C)
+***** TODO Player Position and Look (0x0D)
+***** TODO Player Digging (0x0E)
+***** TODO Player Block Placement (0x0F)
+***** TODO Held Item Change (0x10)
+***** TODO Use Bed (0x11)
+***** TODO Animation (0x12)
+***** TODO Entity Action (0x13)
+***** TODO Spawn Named Entity (0x14)
+***** TODO Collect Item (0x16)
+***** TODO Spawn Object/Vehicle (0x17)
+***** TODO Spawn Mob (0x18)
+***** TODO Spawn Painting (0x19)
+***** TODO Spawn Experience Orb (0x1A)
+***** TODO Entity Velocity (0x1C)
+***** TODO Destroy Entity (0x1D)
+***** TODO Entity (0x1E)
+***** TODO Entity Relative Move (0x1F)
+***** TODO Entity Look (0x20)
+***** TODO Entity Look and Relative Move (0x21)
+***** TODO Entity Teleport (0x22)
+***** TODO Entity Head Look (0x23)
+***** TODO Entity Status (0x26)
+***** TODO Attach Entity (0x27)
+***** TODO Entity Metadata (0x28)
+***** TODO Entity Effect (0x29)
+***** TODO Remove Entity Effect (0x2A)
+***** TODO Set Experience (0x2B)
+***** TODO Chunk Data (0x33)
+***** TODO Multi Block Change (0x34)
+***** TODO Block Change (0x35)
+***** TODO Block Action (0x36)
+***** TODO Block Break Animation (0x37)
+***** TODO Map Chunk Bulk (0x38)
+***** TODO Meta Information Structure
+***** TODO Explosion (0x3C)
+***** TODO Sound Or Particle Effect (0x3D)
+***** TODO Named Sound Effect (0x3E)
+***** TODO Particle (0x3F)
+***** TODO Change Game State (0x46)
+***** TODO Spawn Global Entity (0x47)
+***** TODO Open Window (0x64)
+***** TODO Close Window (0x65)
+***** TODO Click Window (0x66)
+***** TODO Set Slot (0x67)
+***** TODO Set Window Items (0x68)
+***** TODO Update Window Property (0x69)
+***** TODO Confirm Transaction (0x6A)
+***** TODO Creative Inventory Action (0x6B)
+***** TODO Enchant Item (0x6C)
+***** TODO Update Sign (0x82)
+***** TODO Item Data (0x83)
+***** TODO Update Tile Entity (0x84)
+***** TODO Increment Statistic (0xC8)
+***** TODO Player List Item (0xC9)
+***** TODO Player Abilities (0xCA)
+***** TODO Tab-complete (0xCB)
+***** TODO Client Settings (0xCC)
+***** TODO Client Statuses (0xCD)
+***** TODO Scoreboard Objective (0xCE)
+***** TODO Update Score (0xCF)
+***** TODO Display Scoreboard (0xD0)
+***** TODO Teams (0xD1)
+***** TODO Plugin Message (0xFA)
+***** TODO Encryption Key Response (0xFC)
+***** TODO Encryption Key Request (0xFD)
+***** TODO Server List Ping (0xFE)
+***** DONE Disconnect/Kick (0xFF)
+
+* 1.0 PvP arenas
+*** Staying at 1.5.2 protocol (61)
+*** What I'm not going to implement:
+***** Almost anything not direcrly related to PvP/PvE
+*** What I'm going to implement:
+***** TODO Controllable mobs
+***** TODO Capturable points
+***** TODO Shops
+***** TODO More balanced equipment
+***** TODO Fortifications/Fortresses
+
+* 2.0 MMO RPG
+  Many features I'll need at this point will probably require client modification but
+  that's pretty much possible. I'll take care of it once I reach this stage.
+*** TODO Migrate to 1.7.2 protcol (version 4)
+*** What I'm (most definitely) not going to implement:
+***** Redstone
+      Complicated, common use cases can be handled in much simpler and more reliable ways.
+***** Integrated map generator
+      Complicated, unnecessary as maps aren't generated that ofter.
+      Dungeon generator is another thing, it will be included, of course.
+      Will probably make it as optional experimental extension.
+***** The End, Nether
+      I don't need these things.
+***** Regular Minecraft game mechanics
+      Screw Minecraft mechanics.
+*** What I'm going to implement:
+***** TODO HUGE maps support
+***** TODO More advanced hunger/health system
+***** TODO More advanced fighting system
+***** TODO Magic
+******* TODO Wands
+******* TODO Spells
+******* TODO Magical books
+******* TODO Scrolls
+***** TODO NPCs
+***** TODO Buildings
+***** TODO Engineering
+***** TODO Items randomization
+***** TODO Better dungeons
+***** TODO Better chat
+***** TODO Skin server emulation
