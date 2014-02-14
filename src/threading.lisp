@@ -87,3 +87,24 @@
 (defun restart-thread (name &rest args)
   (stop-thread name)
   (apply #'start-thread name args))
+
+
+;;; Time and scheduling
+
+(defun list-timers ()
+  (sb-ext:list-all-timers))
+
+(defun timer-scheduled-p (timer)
+  (sb-ext:timer-scheduled-p timer))
+
+(defun schedule-timer (name function time &key repeat-interval thread absolute-p)
+  (let ((timer (sb-ext:make-timer function
+                                  :name name
+                                  :thread thread)))
+    (sb-ext:schedule-timer timer time
+                           :repeat-interval repeat-interval
+                           :absolute-p absolute-p)
+    timer))
+
+(defun unschedule-timer (timer)
+  (sb-ext:unschedule-timer timer))
