@@ -67,9 +67,7 @@
 
 (defgeneric delete-connection (connection)
   (:method ((connection Connection))
-    (remhash (cons (connection-remote-address connection)
-                   (connection-remote-port connection))
-             *connections*)))
+    (remhash (connection-id connection) *connections*)))
 
 (defgeneric send-data (data connection)
   (:method ((data vector) (connection Connection))
@@ -77,18 +75,18 @@
       (lparallel.queue:with-locked-queue queue
         (lparallel.queue:push-queue/no-lock data queue)))))
 
-(defun get-connection (remote-address remote-port)
-  (gethash (cons remote-address remote-port) *connections*))
+(defun get-connection (connection-id)
+  (gethash connection-id *connections*))
 
-(defun (setf get-connection) (new-value remote-address remote-port)
-  (setf (gethash (cons remote-address remote-port)
-                 *connections*)
+(defun (setf get-connection) (new-value connection-id)
+  (setf (gethash connection-id *connections*)
         new-value))
 
 (defun open-connection (remote-address remote-port socket data-handler)
-  (setf (get-connection remote-address remote-port)
-        (make-instance 'Connection
-                       :remote-address remote-address
-                       :remote-port remote-port
-                       :data-handler data-handler
-                       :socket socket)))
+  (let ((connection (make-instance 'Connection
+                                   :remote-address remote-address
+                                   :remote-port remote-port
+                                   :data-handler data-handler
+                                   :socket socket)))
+    (setf (get-connection (connection-id connection)) connection)
+    connection))

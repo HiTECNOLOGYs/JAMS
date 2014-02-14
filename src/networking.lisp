@@ -15,9 +15,9 @@
     (labels
         ((terminate ()
            (if (lparallel.queue:queue-empty-p data-queue)
-             (funcall disconnector host port :close)
+             (funcall disconnector :close)
              (progn
-               (funcall disconnector host port :read)
+               (funcall disconnector :read)
                (setf read-handler-set? nil))))
 
          (read-bytes (fd event exception)
@@ -50,7 +50,7 @@
                ;; Connection was reseted by client. Closing socket.
                #+jams-debug (log-message :info "[~A:~5D] Connection reset. Closing socket."
                                          host port)
-               (funcall disconnector host port :close))
+               (funcall disconnector :close))
 
              (end-of-file ()
                ;; Client sent EOF. Write all we have (if we have something)
@@ -81,8 +81,8 @@
                             (iolib:send-to socket data))))
 
                    (if (connection-closed-p connection)
-                     (funcall disconnector host port :close)
-                     (progn (funcall disconnector host port :write)
+                     (funcall disconnector :close)
+                     (progn (funcall disconnector :write)
                             (setf write-handler-set? nil)
                             (unless read-handler-set?
                               (iolib:set-io-handler *event-base*
@@ -95,7 +95,7 @@
                ;; Connection was reseted by client. Closing socket.
                #+jams-debug (log-message :info "[~A:~5D] Connection reset. Closing socket."
                                          host port)
-               (funcall disconnector host port :close))
+               (funcall disconnector :close))
 
              (isys:ewouldblock ()
                ;; Say 'Oops' and ignore this.
@@ -107,7 +107,7 @@
                ;; Client doesn't want to accept our data. Fuck you then, client.
                #+jams-debug (log-message :warning "[~A:~5D] End of pipe."
                                          host port)
-               (funcall disconnector host port :close)))))
+               (funcall disconnector :close)))))
 
       (lambda (message)
         (case message
@@ -123,11 +123,11 @@
 
 
 ;;; Disconnection
-
-(defun make-disconnectior (socket)
+(defun make-disconnectior (connection)
   "Returns closure that properly closes socket and removes IO handlers."
-  (lambda (host port &rest events)
-    (let ((fd (iolib:socket-os-fd socket)))
+  (lambda (&rest events)
+    (let* ((socket (connection-socket connection))
+           (fd (iolib:socket-os-fd socket)))
       (unless (null fd)
         (if (not (intersection '(:read :write :error) events))
           (iolib:remove-fd-handlers *event-base* fd :read t :write t :error t)
@@ -140,7 +140,7 @@
               (iolib:remove-fd-handlers *event-base* fd :error t))))
         (when (member :close events)
           (close socket)
-          (delete-connection (get-connection host port)))))))
+          (delete-connection connection))))))
 
 
 ;;; Incoming connections handler
@@ -156,7 +156,7 @@
           #+jams-debug (log-message :info "[~A:~5D] Connected."
                                     address port)
           (let* ((connection (open-connection address port client-socket #'process-packet))
-                 (io-buffer (make-io-buffer connection (make-disconnectior client-socket))))
+                 (io-buffer (make-io-buffer connection (make-disconnectior connection))))
             (iolib:set-io-handler *event-base*
                                   (iolib:socket-os-fd client-socket)
                                   :read
