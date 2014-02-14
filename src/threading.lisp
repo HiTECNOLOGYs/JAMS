@@ -39,13 +39,25 @@
 
 (define-condition Thread-termination () ())
 
+(defun thread-function (name)
+  (get name :function))
+
+(defun (setf thread-function) (new-value name)
+  (setf (get name :function) new-value))
+
+(defun thread-thread (name)
+  (get name :thread))
+
+(defun (setf thread-thread) (new-value name)
+  (setf (get name :thread) new-value))
+
 (defmacro defthread (name args cleanup &body body)
-  `(setf (get ',name :function)
+  `(setf (thread-function ',name)
          #'(lambda ,args
              (handler-bind
                  ((Thread-termination
                     #'(lambda (condition)
-                        (declare (ignore condition))
+                        (declare (ignorable condition))
                         #+jams-debug (log-message :info
                                                   ,(format nil "Stopping thread \"~S\"."
                                                            name))
@@ -54,21 +66,21 @@
                ,@body))))
 
 (defun thread-running-p (name)
-  (let ((thread (get name :thread)))
+  (let ((thread (thread-thread name)))
     (and (threadp thread)
          (thread-alive-p thread))))
 
 (defun start-thread (name &rest args)
   (unless (thread-running-p name)
-    (let* ((function (get name :function))
+    (let* ((function (thread-function name))
            (thread (make-thread (apply #'curry function args)
                                 :name (symbol-name name))))
-      (setf (get name :thread) thread)
+      (setf (thread-thread name) thread)
       thread)))
 
 (defun stop-thread (name)
   (when (thread-running-p name)
-    (interrupt-thread (get name :thread)
+    (interrupt-thread (thread-thread name)
                       #'signal 'Thread-termination)
     t))
 
