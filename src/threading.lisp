@@ -51,6 +51,21 @@
 (defun (setf thread-thread) (new-value name)
   (setf (get name :thread) new-value))
 
+(defun thread-timers (name)
+  (get name :timers))
+
+(defun (setf thread-timers) (new-value name)
+  (setf (get name :timers) new-value))
+
+(defun thread-timer (name timer-name)
+  (cdr (assoc timer-name (thread-timers name)
+              :test #'equalp)))
+
+(defun (setf thread-timer) (new-value name timer-name)
+  (setf (cdr (assoc timer-name (thread-timers name)
+                    :test #'equalp))
+        new-value))
+
 (defmacro defthread (name args cleanup &body body)
   `(setf (thread-function ',name)
          #'(lambda ,args
@@ -80,6 +95,9 @@
 
 (defun stop-thread (name)
   (when (thread-running-p name)
+    (mapc (compose #'unschedule-timer #'cdr) (thread-timers name))
+    (when (notany (compose #'timer-scheduled-p #'cdr) (thread-timers name))
+      (setf (thread-timers name) nil))
     (interrupt-thread (thread-thread name)
                       #'signal 'Thread-termination)
     t))
@@ -91,19 +109,32 @@
 
 ;;; Time and scheduling
 
+(define-condition Timer-exists ()
+  ((old-timer :initarg :old-timer)
+   (new-timer :initarg :new-timer)))
+
 (defun list-timers ()
   (sb-ext:list-all-timers))
 
 (defun timer-scheduled-p (timer)
   (sb-ext:timer-scheduled-p timer))
 
-(defun schedule-timer (name function time &key repeat-interval thread absolute-p)
-  (let ((timer (sb-ext:make-timer function
-                                  :name name
-                                  :thread thread)))
+(defun schedule-timer (name thread-name function time &key repeat-interval absolute-p)
+  (let* ((thread (and (thread-running-p thread-name)
+                      (thread-thread thread-name)))
+         (timer (sb-ext:make-timer function
+                                   :name name
+                                   :thread thread)))
+    (when-let (old-timer (thread-timer thread-name name))
+      (error 'Timer-exists
+             :old-timer old-timer
+             :new-timer timer))
     (sb-ext:schedule-timer timer time
                            :repeat-interval repeat-interval
                            :absolute-p absolute-p)
+    (when thread
+      (push (cons name timer)
+            (thread-timers thread-name)))
     timer))
 
 (defun unschedule-timer (timer)

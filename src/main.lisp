@@ -12,10 +12,10 @@
 
   ;; Starting timer that keeps clients alive
   (schedule-timer "keep-clients-alive"
+                  'network-listener
                   #'keep-alive-everybody
                   1
-                  :repeat-interval 1
-                  :thread (thread-thread 'network-listener))
+                  :repeat-interval 1)
   t)
 
 (defun stop-server ()
