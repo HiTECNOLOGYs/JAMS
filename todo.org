@@ -107,9 +107,9 @@
 ***** Redstone
       Complicated, common use cases can be handled in much simpler and more reliable ways.
 ***** Integrated map generator
-      Complicated, unnecessary as maps aren't generated that ofter.
-      Dungeon generator is another thing, it will be included, of course.
+      Complicated, unnecessary as maps aren't generated that often.
       Will probably make it as optional experimental extension.
+      Dungeon generator is another thing, it will be included, of course.
 ***** The End, Nether
       I don't need these things.
 ***** Regular Minecraft game mechanics
