@@ -28,6 +28,8 @@
 (defun packet-definition-structure (name)
   (get name :structure))
 
+(defgeneric pack (object))
+
 (defun encode-ping-response (protocol-version server-version motd player-count max-players)
   (concatenate 'vector
                (encode-value (list :short

@@ -21,6 +21,8 @@
                (:file "protocol")
                (:file "threading")
                (:file "connections")
+               (:file "objects")
+               (:file "entities")
                (:file "map")
                (:file "game")
                (:file "networking")

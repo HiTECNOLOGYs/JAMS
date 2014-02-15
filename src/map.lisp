@@ -1,8 +1,5 @@
 (in-package :jams)
 
-(define-constant +chunk-size+ (* 16 16 16))
-(define-constant +biomes-grid-size+ (* 16 16))
-
 (defparameter *biomes*
   '((:taiga .    0)
     (:woodland . 1)))
@@ -16,57 +13,6 @@
 
 (defun restore-data (place)
   (restore place))
-
-(defclass Object ()
-  ((id :initarg :id
-       :initform 0
-       :accessor id)
-   (add-id :initarg :add-id
-           :initform 0
-           :accessor add-id)
-   (damage-value :initarg :damage-value
-                 :initform 0
-                 :accessor damage-value)
-   (metadata :initarg :metadata
-             :accessor metadata))
-  (:documentation "To be specific, I need to say that `damage-value' is what is usually called metadata in some implementations and `metadata' is things like inventory or something. Just keep this in mind."))
-
-(defclass Cube (Object)
-  ((light-level :initarg :light-level
-                :initform 15
-                :accessor light-level)
-   (sky-light :initarg :sky-light
-              :initform 15
-              :accessor sky-light)))
-
-(defclass Item (Object)
-  ((x :initarg :x
-      :accessor x)
-   (y :initarg :y
-      :accessor y)
-   (z :initarg :z
-      :accessor z)))
-
-(defclass Entity (Object)
-  ((x :initarg :x
-      :accessor x)
-   (y :initarg :y
-      :accessor y)
-   (z :initarg :z
-      :accessor z)
-   (helath :initarg :health
-           :initform 20
-           :accessor health)
-   (armor :initarg :armor
-          :initform 0
-          :accessor armor)
-   (hunger :initarg :hunger
-           :initform 20
-           :accessor hunger)
-   (inventory :initarg :inventory
-              :initform nil
-              :accessor inventory)))
-
 
 (defclass Chunk ()
   ((x :initarg :x
@@ -84,8 +30,8 @@
           :accessor items)
    (blocks :initarg blocks
            :initform (make-array (list 16 16 16)
-                                 :element-type 'Cube
-                                 :initial-element (make-instance 'Cube))
+                                 :element-type 'World-object
+                                 :initial-element (make-instance 'World-object))
            :accessor blocks)
    (biomes :initarg :biomes
            :initform (make-array (list 16 16)
@@ -100,9 +46,26 @@
    (x :initarg :x
       :accessor x)
    (chunks :initarg :chunks
-           :initform (make-array (list 16)
+           :initform (make-array 16
+                                 :element-type 'Chunk
                                  :initial-element (make-instance 'Chunk))
            :accessor chunks)))
+
+(defclass World ()
+  ((name :initarg :name
+         :accessor world-name)
+   (description :initarg :description
+                :accessor world-description)
+   (map :initarg :map
+        :accessor world-map)
+   (entities :initarg :entities
+             :initform (make-hash-table :test 'equal)
+             :accessor world-entities)))
+
+(defmethod initialize-instance :after ((instance Chunk) &rest initargs)
+  (declare (ignore initargs))
+  (unless (slot-boundp instance 'bitmask)
+    (setf (bitmask instance) (calculate-bitmask instance))))
 
 (defun chunk-layer-empty-p (chunk layer)
   (let ((blocks (blocks chunk)))
@@ -118,11 +81,6 @@
      (if (chunk-layer-empty-p chunk layer)
        (ash 1 layer)
        0))))
-
-(defmethod initialize-instance :after ((instance Chunk) &rest initargs)
-  (declare (ignore initargs))
-  (unless (slot-boundp instance 'bitmask)
-    (setf (bitmask instance) (calculate-bitmask instance))))
 
 (defun mapchunk (chunk chunk-slot function &optional step)
   (let ((blocks (slot-value chunk chunk-slot))
@@ -176,8 +134,6 @@
             #'(lambda (biomes biome counter)
                 (declare (ignore biomes counter))
                 (get-biome-value biome))))
-
-(defgeneric pack (object))
 
 (defmethod pack ((chunk Chunk))
   (concatenate '(simple-array (unsigned-byte 8) (*))
