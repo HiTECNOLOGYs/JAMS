@@ -88,6 +88,10 @@
 ***** TODO Server List Ping (0xFE)
 ***** DONE Disconnect/Kick (0xFF)
 
+* 0.2 Alpha release
+*** TODO Plugins support
+*** TODO Config files support
+
 * 1.0 PvP arenas
 *** Staying at 1.5.2 protocol (61)
 *** What I'm not going to implement:
