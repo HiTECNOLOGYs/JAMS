@@ -124,11 +124,9 @@
                               16))
              connection)
   (send-login-packets connection)
-  (setf (connection-status connection)              :running
-        (connection-client connection)              (add-player *world* nick)
-        (connection-termination-handler connection) #'(lambda (connection)
-                                                        (declare (ignore connection))
-                                                        (delete-player *world* nick))))
+  (setf (connection-status connection) :running
+        (connection-client connection) (add-player *world* nick)))
+
 (defun ping (connection magic)
   (declare (ignore magic)) ; assuming magic is always 1
   (let ((number-of-players (get-players-count *world*)))
