@@ -6,7 +6,7 @@
 #+FILETAGS: :jams:projects:work:
 
 * 0.1 First working release
-*** TODO Packets
+*** TODO Packets [10/80]
 ***** DONE Keep Alive (0x00)
 ***** DONE Login Request (0x01)
 ***** DONE Handshake (0x02)
@@ -18,8 +18,8 @@
 ***** TODO Update Health (0x08)
 ***** TODO Respawn (0x09)
 ***** TODO Player (0x0A)
-***** TODO Player Position (0x0B)
-***** TODO Player Look (0x0C)
+***** DONE Player Position (0x0B)
+***** DONE Player Look (0x0C)
 ***** DONE Player Position and Look (0x0D)
 ***** TODO Player Digging (0x0E)
 ***** TODO Player Block Placement (0x0F)

@@ -13,6 +13,8 @@
    (pitch :initarg :pitch
           :initform 0.0
           :accessor pitch)
+   (on-ground? :initform t
+               :accessor on-ground-p)
    (helath :initarg :health
            :initform 20
            :accessor health)

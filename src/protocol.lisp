@@ -104,6 +104,20 @@
                    ,(pitch player)
                    t))))
 
+(defun player-position  (connection x y stance z on-ground?)
+  (let ((player (connection-client connection)))
+    (setf (x player)           x
+          (y player)           y
+          (z player)           z
+          (stance player)      stance
+          (on-ground-p player) on-ground?)))
+
+(defun player-look (connection yaw pitch on-ground?)
+  (let ((player (connection-client connection)))
+    (setf (yaw player)         yaw
+          (pitch player)       pitch
+          (on-ground-p player) on-ground?)))
+
 (defun handshake (connection protocol-id nick address port)
   #+jams-debug (log-message :info "Player connected: ~A (protocol:~A) (~A:~D)"
                             nick protocol-id address port)
