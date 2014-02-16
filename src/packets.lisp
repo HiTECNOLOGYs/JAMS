@@ -9,7 +9,7 @@
    (connection :initarg :connection)))
 
 (defmacro defpacket ((name id) structure &body body)
-  "Structure format (name-for-binding type)."
+  "Structure format (type name-for-binding)."
   `(progn
      ,(when body
         `(defun ,name ,(cons 'connection (mapcar #'second structure))
