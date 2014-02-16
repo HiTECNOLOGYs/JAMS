@@ -58,6 +58,9 @@
                 :accessor world-description)
    (map :initarg :map
         :accessor world-map)
+   (spawn-point :initarg :spawn-point
+                :documentation "(X Y Z)"
+                :accessor world-spawn-point)
    (players :initform (make-hash-table :test 'equal)
             :accessor world-players)
    (entities :initarg :entities
@@ -169,4 +172,5 @@
 (defvar *world*
   (make-instance 'World
                  :name "Main"
-                 :description "Main world."))
+                 :description "Main world."
+                 :spawn-point (list 0 0 0)))
