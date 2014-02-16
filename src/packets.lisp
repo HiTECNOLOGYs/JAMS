@@ -70,6 +70,10 @@
     (values (encode-packet 'keep-alive `((:integer ,id)))
             id)))
 
+(defun send-packet (name connection data)
+  (send-data (encode-packet name data)
+             connection))
+
 
 ;;; Packets processing
 

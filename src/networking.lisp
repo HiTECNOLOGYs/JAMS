@@ -14,13 +14,13 @@
         (write-handler-set? nil))
     (labels
         ((terminate ()
-           (terminate-connection connection)
-           (dispatch-connection connection #())
            (if (lparallel.queue:queue-empty-p data-queue)
              (funcall disconnector :close)
              (progn
                (funcall disconnector :read)
-               (setf read-handler-set? nil))))
+               (setf read-handler-set? nil)))
+           (terminate-connection connection)
+           (dispatch-connection connection #()))
 
          (read-bytes (fd event exception)
            (declare (ignore event exception))
