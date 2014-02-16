@@ -15,8 +15,8 @@
 
 (defun increment-time ()
   (setf (world-age *world*)  (1+ (world-age *world*))
-        (world-time *world*) (mod (1+ (world-time *world*))
-                                  +ticks-per-game-day+)))
+        (world-time-of-day *world*) (mod (1+ (world-time *world*))
+                                         +ticks-per-game-day+)))
 
 (defun server-tick ()
   (increment-time)
