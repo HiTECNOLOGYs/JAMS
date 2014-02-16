@@ -174,3 +174,9 @@
                  :name "Main"
                  :description "Main world."
                  :spawn-point (list 0 0 0)))
+
+(defun get-spawn-point (world)
+  (let ((point (world-spawn-point world))) 
+    (list :x (first point)
+          :y (second point)
+          :z (third point))))

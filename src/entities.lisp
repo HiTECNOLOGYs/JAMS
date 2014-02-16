@@ -8,8 +8,10 @@
    (z :initarg :z
       :accessor z)
    (yaw :initarg :yaw
-        :accessor pitch)
+        :initform 0.0
+        :accessor yaw)
    (pitch :initarg :pitch
+          :initform 0.0
           :accessor pitch)
    (helath :initarg :health
            :initform 20
@@ -35,6 +37,15 @@
    (inventory :initarg :inventory
               :initform nil
               :accessor inventory)))
+
+(defmethod initialize-instance :after ((instance Player) &rest initargs)
+  (declare (ignore initargs))
+  (unless (notany (curry #'slot-boundp instance)
+                  '(x y z))
+    (let ((point (get-spawn-point *world*)))
+      (setf (x instance) (getf point :x)
+            (y instance) (getf point :y)
+            (z instance) (getf point :z)))))
 
 (defgeneric use (world entity target)
   (:documentation "Called when entity uses world object."))

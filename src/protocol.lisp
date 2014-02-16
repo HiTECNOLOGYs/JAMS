@@ -84,20 +84,22 @@
   "Sends packets required to log in."
   #+jams-debug (log-message :info "Sending data to client #~D"
                             (connection-id connection))
-  (send-packet 'spawn-position
-               connection
-               '((:integer 0)
-                 (:integer 0)
-                 (:integer 0)))
-  (send-packet 'player-position-and-look
-               connection
-               '((:double 0.0)
-                 (:double 0.0)
-                 (:double 2.0)
-                 (:double 0.0)
-                 0.0
-                 0.0
-                 t)))
+  (let ((spawn-point (get-spawn-point *world*))
+        (player (connection-client connection)))
+    (send-packet 'spawn-position
+                 connection
+                 `((:integer ,(getf spawn-point :x))
+                   (:integer ,(getf spawn-point :y))
+                   (:integer ,(getf spawn-point :z))))
+    (send-packet 'player-position-and-look
+                 connection
+                 `((:double ,(x player))
+                   (:double ,(y player))
+                   (:double ,(+ 2.0 (x player)))
+                   (:double ,(z player))
+                   ,(yaw player)
+                   ,(pitch player)
+                   t))))
 
 (defun handshake (connection protocol-id nick address port)
   #+jams-debug (log-message :info "Player connected: ~A (protocol:~A) (~A:~D)"
