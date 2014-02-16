@@ -48,7 +48,7 @@
             (funcall (connection-data-handler connection)
                      connection received-data))))
       (case (connection-status connection)
-        (:opened
+        (:opening
          (call-data-handler))
         (:running
          (call-data-handler)
