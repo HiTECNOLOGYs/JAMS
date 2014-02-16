@@ -7,6 +7,10 @@
       :accessor y)
    (z :initarg :z
       :accessor z)
+   (yaw :initarg :yaw
+        :accessor pitch)
+   (pitch :initarg :pitch
+          :accessor pitch)
    (helath :initarg :health
            :initform 20
            :accessor health)
@@ -15,10 +19,7 @@
           :accessor armor)
    (hunger :initarg :hunger
            :initform 20
-           :accessor hunger)
-   (inventory :initarg :inventory
-              :initform nil
-              :accessor inventory)))
+           :accessor hunger)))
 
 (defclass Zombie (Entity) ())
 
@@ -26,7 +27,14 @@
 
 (defclass Creeper (Entity) ())
 
-(defclass Player (Entity) ())
+(defclass Player (Entity)
+  ((nickname :initarg :nickname
+             :reader player-nickname)
+   (hands :initform 0
+          :accessor player-hands)
+   (inventory :initarg :inventory
+              :initform nil
+              :accessor inventory)))
 
 (defgeneric use (world entity target)
   (:documentation "Called when entity uses world object."))

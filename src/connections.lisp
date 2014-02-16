@@ -32,7 +32,8 @@
    (last-keep-alive-time :initform (get-universal-time)
                          :accessor connection-last-keep-alive-time)
    (data-handler :initarg :data-handler
-                 :accessor connection-data-handler)))
+                 :accessor connection-data-handler)
+   (termination-handler :accessor connection-termination-handler)))
 
 (define-condition Close-connection ()
   ((connection :initarg :connection)
@@ -40,18 +41,25 @@
 
 (defgeneric dispatch-connection (connection received-data)
   (:method ((connection Connection) (received-data vector))
-    (case (connection-status connection)
-      (:opened
-       ;; (setf (connection-status connection) :running)
-       )
-      (:running
-       (when (< +max-no-keep-alive-time+
-                (- (connection-last-keep-alive-time connection)
-                   (get-universal-time)))
-         (terminate-connection connection))))
-    (when (slot-boundp connection 'data-handler)
-      (funcall (connection-data-handler connection)
-               connection received-data))))
+    (flet
+       ((call-data-handler ()
+          (when (and (not (zerop (length received-data)))
+                     (slot-boundp connection 'data-handler))
+            (funcall (connection-data-handler connection)
+                     connection received-data))))
+      (case (connection-status connection)
+        (:opened
+         (call-data-handler))
+        (:running
+         (call-data-handler)
+         (when (< +max-no-keep-alive-time+
+                  (- (connection-last-keep-alive-time connection)
+                     (get-universal-time)))
+           (terminate-connection connection)))
+        (:closed
+         (when (slot-boundp connection 'termination-handler)
+           (funcall (connection-termination-handler connection)
+                    connection)))))))
 
 (defgeneric connection-closed-p (connection)
   (:method ((connection Connection))

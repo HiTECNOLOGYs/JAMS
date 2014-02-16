@@ -58,6 +58,8 @@
                 :accessor world-description)
    (map :initarg :map
         :accessor world-map)
+   (players :initform (make-hash-table :test 'equal)
+            :accessor world-players)
    (entities :initarg :entities
              :initform (make-hash-table :test 'equal)
              :accessor world-entities)))
@@ -135,6 +137,20 @@
                 (declare (ignore biomes counter))
                 (get-biome-value biome))))
 
+(defun world-player (world player-nickname)
+  (gethash player-nickname (world-players world)))
+
+(defun (setf world-player) (new-value world player-nickname)
+  (setf (gethash player-nickname (world-players world))
+        new-value))
+
+(defun add-player (world player-nickname)
+  (setf (world-player world player-nickname)
+        (make-instance 'Player :nickname player-nickname)))
+
+(defun delete-player (world player-nickname)
+  (remhash player-nickname (world-players world)))
+
 (defmethod pack ((chunk Chunk))
   (concatenate '(simple-array (unsigned-byte 8) (*))
                (get-chunk-blocks-id chunk)
@@ -149,3 +165,8 @@
 (defmethod pack :around ((chunk Chunk))
   (salza2:compress-data (call-next-method)
                         'salza2:deflate-compressor))
+
+(defvar *world*
+  (make-instance 'World
+                 :name "Main"
+                 :description "Main world."))

@@ -14,6 +14,8 @@
         (write-handler-set? nil))
     (labels
         ((terminate ()
+           (terminate-connection connection)
+           (dispatch-connection connection #())
            (if (lparallel.queue:queue-empty-p data-queue)
              (funcall disconnector :close)
              (progn

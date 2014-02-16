@@ -25,15 +25,6 @@
   "Sends packets required to log in."
   #+jams-debug (log-message :info "Sending data to client #~D"
                             (connection-id connection))
-  (send-data (encode-packet 'login-request
-                            '((:integer 228)
-                              "default"
-                              0
-                              0
-                              0
-                              0
-                              16))
-             connection)
   (send-data (encode-packet 'spawn-position
                             '((:integer 0)
                               (:integer 0)
@@ -49,10 +40,25 @@
                               t))
              connection))
 
-(defpacket (handshake #x02) ((:byte prot-id) (:string nick) (:string address) (:integer port))
-  #+jams-debug
-  (log-message :info "Player connected: ~A (protocol:~A) (~A:~D)"
-               nick prot-id address port)
+(defpacket (handshake #x02) ((:byte prot-id)
+                             (:string nick)
+                             (:string address)
+                             (:integer port))
+  #+jams-debug (log-message :info "Player connected: ~A (protocol:~A) (~A:~D)"
+                            nick prot-id address port)
+  (send-data (encode-packet 'login-request
+                            '((:integer 228)
+                              "default"
+                              0
+                              0
+                              0
+                              0
+                              16))
+             connection)
+  (setf (connection-client connection) (add-player *world* nick)
+        (connection-termination-handler connection) #'(lambda (connection)
+                                                        (declare (ignore connection))
+                                                        (delete-player *world* nick)))
   (send-login-packets connection))
 
 (defpacket (spawn-position #x06) ((:integer x) (:integer y) (:integer z)))
