@@ -56,6 +56,12 @@
          :accessor world-name)
    (description :initarg :description
                 :accessor world-description)
+   (age :initarg :age
+        :initform 0
+        :accessor world-age)
+   (time-of-day :initarg :time-of-day
+                :initform 0
+                :accessor world-time-of-day)
    (map :initarg :map
         :accessor world-map)
    (spawn-point :initarg :spawn-point
@@ -176,7 +182,7 @@
                  :spawn-point (list 0 0 0)))
 
 (defun get-spawn-point (world)
-  (let ((point (world-spawn-point world))) 
+  (let ((point (world-spawn-point world)))
     (list :x (first point)
           :y (second point)
           :z (third point))))

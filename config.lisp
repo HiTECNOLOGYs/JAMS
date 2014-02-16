@@ -15,3 +15,6 @@
 
 (define-constant +server-address+ iolib:+ipv4-unspecified+
   :test #'equal)
+
+(define-constant +ticks-per-game-day+ 24000
+  :test #'=)

@@ -17,6 +17,9 @@
                              (:string address)
                              (:integer port)))
 
+(defpacket (time-update #x04) ((:long age-of-the-world)
+                               (:long time-of-day)))
+
 (defpacket (spawn-position #x06) ((:integer x)
                                   (:integer y)
                                   (:integer z)))
