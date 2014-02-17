@@ -153,9 +153,16 @@
   (setf (gethash player-nickname (world-players world))
         new-value))
 
-(defun add-player (world player-nickname)
-  (setf (world-player world player-nickname)
-        (make-instance 'Player :nickname player-nickname)))
+(defun add-player (world connection player-nickname)
+  (multiple-value-bind (player exists?)
+      (world-player world player-nickname)
+    (if exists?
+      (setf (player-connection player)
+            connection)
+      (setf (world-player world player-nickname)
+            (make-instance 'Player
+                           :nickname player-nickname
+                           :connection connection)))))
 
 (defun delete-player (world player-nickname)
   (remhash player-nickname (world-players world)))
