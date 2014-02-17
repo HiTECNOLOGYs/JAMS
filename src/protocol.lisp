@@ -47,7 +47,10 @@
 (defpacket (chunk-data #x33) ((:integer x)
                               (:integer z)
                               (:bool ground-up-continuous)
-                              (:unsigned :short)))
+                              ((:unsigned :short) primary-bit-map)
+                              ((:unsigned :short) add-bit-map)
+                              (:integer compressed-size)
+                              ((:array :byte) compressed-data)))
 
 (defpacket (client-statuses #xCD) ((:byte payload)))
 
@@ -83,27 +86,6 @@
     (setf (connection-last-keep-alive-time connection)  (get-universal-time)
           (connection-keep-alive-received-p connection) t)))
 
-(defun send-login-packets (connection)
-  "Sends packets required to log in."
-  #+jams-debug (log-message :info "Sending data to client #~D"
-                            (connection-id connection))
-  (let ((spawn-point (get-spawn-point *world*))
-        (player (connection-client connection)))
-    (send-packet 'spawn-position
-                 connection
-                 `((:integer ,(getf spawn-point :x))
-                   (:integer ,(getf spawn-point :y))
-                   (:integer ,(getf spawn-point :z))))
-    (send-packet 'player-position-and-look
-                 connection
-                 `((:double ,(x player))
-                   (:double ,(y player))
-                   (:double ,(+ 2.0 (x player)))
-                   (:double ,(z player))
-                   ,(yaw player)
-                   ,(pitch player)
-                   t))))
-
 (defun player-position  (connection x y stance z on-ground?)
   (let ((player (connection-client connection)))
     (setf (x player)           x
@@ -137,9 +119,15 @@
                               0
                               16))
              connection)
-  (send-login-packets connection)
-  (setf (connection-status connection) :running
-        (connection-client connection) (add-player *world* nick)))
+  (let ((player (add-player *world* connection nick)))
+    (setf (connection-status connection) :running
+          (connection-client connection) player)
+    (spawn-entity *world* player)))
+
+(defun client-statuses (connection payload)
+  (switch (payload :test #'=)
+    (0 (spawn-entity *world* (connection-client connection)))
+    (1 (respawn-entity *world* (connection-client connection)))))
 
 (defun ping (connection magic)
   (declare (ignore magic)) ; assuming magic is always 1

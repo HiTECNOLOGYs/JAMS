@@ -23,7 +23,9 @@
           :accessor armor)
    (hunger :initarg :hunger
            :initform 20
-           :accessor hunger)))
+           :accessor hunger)
+   (spawned? :initform nil
+             :accessor spawned-p)))
 
 (defclass Zombie (Entity) ())
 
@@ -34,6 +36,8 @@
 (defclass Player (Entity)
   ((nickname :initarg :nickname
              :reader player-nickname)
+   (connection :initarg :connection
+               :accessor player-connection)
    (hands :initform 0
           :accessor player-hands)
    (inventory :initarg :inventory
@@ -58,3 +62,32 @@
 (defgeneric left-mouse-button (world entity target))
 
 (defgeneric move (world entity))
+
+
+(defgeneric spawn-entity (world entity))
+(defgeneric respawn-entity (world entity))
+
+(defmethod spawn-entity ((world World) (player Player))
+  (let* ((connection (player-connection player))
+         (spawn-point (get-spawn-point *world*)))
+    ;; TODO Send chunks here
+    ;; TODO Send entities here
+    (send-packet 'spawn-position
+                 connection
+                 `((:integer ,(getf spawn-point :x))
+                   (:integer ,(getf spawn-point :y))
+                   (:integer ,(getf spawn-point :z))))
+    ;; TDOD Send inventory here
+    (send-packet 'player-position-and-look
+                 connection
+                 `((:double ,(x player))
+                   (:double ,(y player))
+                   (:double ,(+ 2.0 (x player)))
+                   (:double ,(z player))
+                   ,(yaw player)
+                   ,(pitch player)
+                   t))
+    ;; TODO Receive look+position packet sent from client here
+    ;;      in order to verify spawn position.
+    )
+  (setf (spawned-p player) t))
