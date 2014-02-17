@@ -6,7 +6,7 @@
 #+FILETAGS: :jams:projects:work:
 
 * 0.1 First working release
-*** TODO Packets [10/80]
+*** TODO Packets [11/80]
 ***** DONE Keep Alive (0x00)
 ***** DONE Login Request (0x01)
 ***** DONE Handshake (0x02)
@@ -53,7 +53,6 @@
 ***** TODO Block Action (0x36)
 ***** TODO Block Break Animation (0x37)
 ***** TODO Map Chunk Bulk (0x38)
-***** TODO Meta Information Structure
 ***** TODO Explosion (0x3C)
 ***** TODO Sound Or Particle Effect (0x3D)
 ***** TODO Named Sound Effect (0x3E)
@@ -77,7 +76,7 @@
 ***** TODO Player Abilities (0xCA)
 ***** TODO Tab-complete (0xCB)
 ***** TODO Client Settings (0xCC)
-***** TODO Client Statuses (0xCD)
+***** DONE Client Statuses (0xCD)
 ***** TODO Scoreboard Objective (0xCE)
 ***** TODO Update Score (0xCF)
 ***** TODO Display Scoreboard (0xD0)
@@ -91,6 +90,7 @@
 * 0.2 Alpha release
 *** TODO Plugins support
 *** TODO Config files support
+*** TODO Encryption support
 
 * 1.0 PvP arenas
 *** Staying at 1.5.2 protocol (61)
