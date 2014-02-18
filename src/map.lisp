@@ -39,20 +39,21 @@
   (declare (ignore initargs))
   (unless (slot-boundp instance 'bitmask)
     (setf (chunk-bitmask instance) (calculate-bitmask instance))))
+
 (defclass Chunks-column ()
   ((id :initarg :id
-       :accessor id)
+       :accessor chunks-column-id)
    (z :initarg :z
-      :accessor z)
+      :accessor chunks-column-z)
    (x :initarg :x
-      :accessor x)
+      :accessor chunks-column-x)
    (chunks :initarg :chunks
-           :accessor chunks)))
+           :accessor chunks-column-chunks)))
 
 (defmethod initialize-instance ((instance Chunks-column) &rest initargs)
   (declare (ignore initargs))
   (unless (slot-boundp instance 'chunks)
-    (setf (chunks instance)
+    (setf (chunks-column-chunks instance)
           (make-array 16
                       :element-type 'Chunk
                       :initial-element (make-instance 'Chunk
@@ -82,10 +83,30 @@
              :initform (make-hash-table :test 'equal)
              :accessor world-entities)))
 
-(defmethod initialize-instance :after ((instance Chunk) &rest initargs)
-  (declare (ignore initargs))
-  (unless (slot-boundp instance 'bitmask)
-    (setf (bitmask instance) (calculate-bitmask instance))))
+(defclass Region ()
+  ((x1 :initarg :x1
+       :accessor region-x1)
+   (z1 :initarg :z1
+       :accessor region-z1)
+   (x2 :initarg :x2
+       :accessor region-x2)
+   (z2 :initarg :z2
+       :accessor region-z2)
+   (chunks-columns :initargs :chunks-columns
+                   :initform nil
+                   :accessor regions-chunks-columns)))
+
+(defun get-region (world x1 z1 x2 z2)
+  (iter (for x from x1 to x2)
+    (appending (iter (for z from z1 to z2)
+                 (collecting (cons (list x z) (world-chunks-column world x z)))))))
+
+(defmethod initialize-instance :after ((instance Region) &key world)
+  (unless (slot-boundp instance 'chunks-columns)
+    (setf (regions-chunks-columns instance)
+          (get-region world
+                      (region-x1 instance) (region-z1 instance)
+                      (region-x2 instance) (region-z2 instance)))))
 
 
 ;;; Biomes
@@ -97,8 +118,7 @@
 ;;; Data (re)storing
 
 (defun store-data (data place)
-  (store data
-         place))
+  (store data place))
 
 (defun restore-data (place)
   (restore place))
@@ -107,7 +127,7 @@
 ;;; Chunks
 
 (defun chunk-layer-empty-p (chunk layer)
-  (let ((blocks (blocks chunk)))
+  (let ((blocks (chunk-blocks chunk)))
     (dotimes (z 16)
       (dotimes (x 16)
         (when (aref blocks layer x z)
@@ -120,6 +140,7 @@
      (if (chunk-layer-empty-p chunk layer)
        (ash 1 layer)
        0))))
+
 
 
 ;;; World
@@ -157,11 +178,6 @@
           :y (second point)
           :z (third point))))
 
-(defun get-region (world x1 z1 x2 z2)
-  (iter (for x from x1 to x2)
-    (appending (iter (for z from z1 to z2)
-                 (collecting (cons (list x z) (world-chunks-column world x z)))))))
-
 
 ;;; Packing data for sending it over wires
 
@@ -180,36 +196,34 @@
   (mapchunk chunk 'blocks
             #'(lambda (blocks block counter)
                 (declare (ignore blocks counter))
-                (ldb (byte 8 0) (id block)))))
+                (ldb (byte 8 0) (object-id block)))))
 
 (defun get-chunk-blocks-damage-value (chunk)
   (mapchunk chunk 'blocks
             #'(lambda (blocks block counter)
                 (logior (ldb (byte 4 0)
-                             (damage-value block))
+                             (object-damage-value block))
                         (ldb (byte 4 4)
-                             (damage-value (row-major-aref blocks (1+ counter))))))))
+                             (object-damage-value (row-major-aref blocks (1+ counter))))))))
 
 (defun get-chunk-blocks-light-level (chunk)
   (mapchunk chunk 'blocks
             #'(lambda (blocks block counter)
                 (declare (ignore blocks counter))
-                (light-level block))))
+                (world-object-light-level block))))
 
 (defun get-chunk-blocks-sky-light (chunk)
   (mapchunk chunk 'blocks
             #'(lambda (blocks block counter)
                 (declare (ignore blocks counter))
-                (if (sky-light block)
-                  1
-                  0))))
+                (world-object-sky-light block))))
 
 (defun get-chunk-blocks-add-id (chunk)
   (mapchunk chunk 'blocks
             #'(lambda (blocks block counter)
-                (logior (ldb (byte 4 8) (id block))
+                (logior (ldb (byte 4 8) (object-id block))
                         (ash (ldb (byte 4 8)
-                                  (id (row-major-aref blocks (1+ counter))))
+                                  (object-id (row-major-aref blocks (1+ counter))))
                              4)))))
 
 (defun get-chunk-biomes (chunk)
@@ -228,6 +242,9 @@
                  #())
                (get-chunk-blocks-add-id chunk)
                (get-chunk-biomes chunk)))
+
+(defmethod pack ((column Chunks-column))
+  (pack (chunks column)))
 
 (defmethod pack :around ((chunk Chunk))
   (salza2:compress-data (call-next-method)
