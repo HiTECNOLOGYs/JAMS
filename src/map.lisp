@@ -93,8 +93,7 @@
    (z2 :initarg :z2
        :accessor region-z2)
    (chunks-columns :initargs :chunks-columns
-                   :initform nil
-                   :accessor regions-chunks-columns)))
+                   :accessor region-chunks-columns)))
 
 (defun get-region (world x1 z1 x2 z2)
   (iter (for x from x1 to x2)
@@ -103,7 +102,7 @@
 
 (defmethod initialize-instance :after ((instance Region) &key world)
   (unless (slot-boundp instance 'chunks-columns)
-    (setf (regions-chunks-columns instance)
+    (setf (region-chunks-columns instance)
           (get-region world
                       (region-x1 instance) (region-z1 instance)
                       (region-x2 instance) (region-z2 instance)))))
@@ -177,6 +176,12 @@
     (list :x (first point)
           :y (second point)
           :z (third point))))
+
+(defun view-distance->region (world center-x center-z)
+  (make-instance 'Region
+                 :world world
+                 :x1 (- center-x *view-distance*) :z1 (- center-z *view-distance*)
+                 :x2 (+ center-z *view-distance*) :z2 (+ center-z *view-distance*)))
 
 
 ;;; Packing data for sending it over wires

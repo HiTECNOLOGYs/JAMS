@@ -6,4 +6,5 @@
 (defparameter *server-max-players*        32)
 (defparameter *server-port*               25565)
 (defparameter *server-address*            iolib:+ipv4-unspecified+)
+(defparameter *view-distance*             8)
 (defparameter *ticks-per-game-day*        24000)
