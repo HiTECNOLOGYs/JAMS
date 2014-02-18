@@ -18,8 +18,10 @@
 (defclass Chunk ()
   ((x :initarg :x
       :accessor x)
-   (y :initarg :y
-      :accessor y)
+   (z :initarg :z
+      :accessor z)
+   (id :initarg :id
+       :accessor id)
    (bitmask :accessor bitmask
             :type '(unsigned-byte 16))
    (sky-lit? :initarg :sky-lit
@@ -64,9 +66,7 @@
                 :initform 0
                 :accessor world-time-of-day)
    (map :initarg :map
-        :initform (make-array 0
-                              :adjustable t
-                              :fill-pointer 0)
+        :initform (make-hash-table :test 'equal)
         :accessor world-map)
    (spawn-point :initarg :spawn-point
                 :documentation "(X Y Z)"
@@ -119,6 +119,12 @@
 
 ;;; World
 
+(defun world-chunks-column (world x z)
+  (gethash (list x z) (world-map world)))
+
+(defun (setf world-chunks-column) (new-value world x z)
+  (setf (gethash (list x z) (world-map world)) new-value))
+
 (defun world-player (world player-nickname)
   (gethash player-nickname (world-players world)))
 
@@ -145,6 +151,11 @@
     (list :x (first point)
           :y (second point)
           :z (third point))))
+
+(defun get-region (world x1 z1 x2 z2)
+  (iter (for x from x1 to x2)
+    (appending (iter (for z from z1 to z2)
+                 (collecting (cons (list x z) (world-chunks-column world x z)))))))
 
 
 ;;; Packing data for sending it over wires
