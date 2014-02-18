@@ -1,18 +1,19 @@
 (in-package :jams)
 
+;;; Vars
+
 (defparameter *biomes*
   '((:taiga .    0)
     (:woodland . 1)))
 
-(defun get-biome-value (biome-id)
-  (cdr (assoc biome-id *biomes*)))
+(defvar *world*
+  (make-instance 'World
+                 :name "Main"
+                 :description "Main world."
+                 :spawn-point (list 0 0 0)))
 
-(defun store-data (data place)
-  (store data
-         place))
 
-(defun restore-data (place)
-  (restore place))
+;;; Calsses definitions
 
 (defclass Chunk ()
   ((x :initarg :x
@@ -63,6 +64,9 @@
                 :initform 0
                 :accessor world-time-of-day)
    (map :initarg :map
+        :initform (make-array 0
+                              :adjustable t
+                              :fill-pointer 0)
         :accessor world-map)
    (spawn-point :initarg :spawn-point
                 :documentation "(X Y Z)"
@@ -78,6 +82,25 @@
   (unless (slot-boundp instance 'bitmask)
     (setf (bitmask instance) (calculate-bitmask instance))))
 
+
+;;; Biomes
+
+(defun get-biome-value (biome-id)
+  (cdr (assoc biome-id *biomes*)))
+
+
+;;; Data (re)storing
+
+(defun store-data (data place)
+  (store data
+         place))
+
+(defun restore-data (place)
+  (restore place))
+
+
+;;; Chunks
+
 (defun chunk-layer-empty-p (chunk layer)
   (let ((blocks (blocks chunk)))
     (dotimes (z 16)
@@ -92,6 +115,39 @@
      (if (chunk-layer-empty-p chunk layer)
        (ash 1 layer)
        0))))
+
+
+;;; World
+
+(defun world-player (world player-nickname)
+  (gethash player-nickname (world-players world)))
+
+(defun (setf world-player) (new-value world player-nickname)
+  (setf (gethash player-nickname (world-players world))
+        new-value))
+
+(defun add-player (world connection player-nickname)
+  (multiple-value-bind (player exists?)
+      (world-player world player-nickname)
+    (if exists?
+      (setf (player-connection player)
+            connection)
+      (setf (world-player world player-nickname)
+            (make-instance 'Player
+                           :nickname player-nickname
+                           :connection connection)))))
+
+(defun delete-player (world player-nickname)
+  (remhash player-nickname (world-players world)))
+
+(defun get-spawn-point (world)
+  (let ((point (world-spawn-point world)))
+    (list :x (first point)
+          :y (second point)
+          :z (third point))))
+
+
+;;; Packing data for sending it over wires
 
 (defun mapchunk (chunk chunk-slot function &optional step)
   (let ((blocks (slot-value chunk chunk-slot))
@@ -146,27 +202,6 @@
                 (declare (ignore biomes counter))
                 (get-biome-value biome))))
 
-(defun world-player (world player-nickname)
-  (gethash player-nickname (world-players world)))
-
-(defun (setf world-player) (new-value world player-nickname)
-  (setf (gethash player-nickname (world-players world))
-        new-value))
-
-(defun add-player (world connection player-nickname)
-  (multiple-value-bind (player exists?)
-      (world-player world player-nickname)
-    (if exists?
-      (setf (player-connection player)
-            connection)
-      (setf (world-player world player-nickname)
-            (make-instance 'Player
-                           :nickname player-nickname
-                           :connection connection)))))
-
-(defun delete-player (world player-nickname)
-  (remhash player-nickname (world-players world)))
-
 (defmethod pack ((chunk Chunk))
   (concatenate '(simple-array (unsigned-byte 8) (*))
                (get-chunk-blocks-id chunk)
@@ -181,15 +216,3 @@
 (defmethod pack :around ((chunk Chunk))
   (salza2:compress-data (call-next-method)
                         'salza2:deflate-compressor))
-
-(defvar *world*
-  (make-instance 'World
-                 :name "Main"
-                 :description "Main world."
-                 :spawn-point (list 0 0 0)))
-
-(defun get-spawn-point (world)
-  (let ((point (world-spawn-point world)))
-    (list :x (first point)
-          :y (second point)
-          :z (third point))))
