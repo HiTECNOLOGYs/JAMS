@@ -111,13 +111,13 @@
            :connection connection
            :reason "No slots available."))
   (send-data (encode-packet 'login-request
-                            '((:integer 228)
+                            `((:integer (id player))
                               "default"
                               0
                               0
                               0
                               0
-                              16))
+                              +server-max-players+))
              connection)
   (let ((player (add-player *world* connection nick)))
     (setf (connection-status connection) :running

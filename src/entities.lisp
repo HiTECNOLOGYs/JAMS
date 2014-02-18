@@ -1,7 +1,15 @@
 (in-package :jams)
 
+(defvar *next-entity-id* 0)
+
+(defun gen-entity-id ()
+  (prog1 *next-connection-id*
+    (incf *next-connection-id*)))
+
 (defclass Entity ()
-  ((x :initarg :x
+  ((id :initform (gen-entity-id)
+       :reader id)
+   (x :initarg :x
       :accessor x)
    (y :initarg :y
       :accessor y)
