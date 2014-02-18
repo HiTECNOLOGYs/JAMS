@@ -251,6 +251,11 @@
 (defmethod pack ((column Chunks-column))
   (pack (chunks column)))
 
+(defmethod pack ((region Region))
+  (iter (for (position . chunks-column) in (region-chunks-columns region))
+    (when chunks-column
+      (collecting (pack chunks-column)))))
+
 (defmethod pack :around ((chunk Chunk))
   (salza2:compress-data (call-next-method)
                         'salza2:deflate-compressor))
