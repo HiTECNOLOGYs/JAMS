@@ -11,30 +11,34 @@
 
 (defclass Chunk ()
   ((x :initarg :x
-      :accessor x)
+      :accessor chunk-x)
    (z :initarg :z
-      :accessor z)
+      :accessor chunk-z)
    (id :initarg :id
-       :accessor id)
-   (bitmask :accessor bitmask
+       :accessor chunk-id)
+   (bitmask :accessor chunk-bitmask
             :type '(unsigned-byte 16))
    (sky-lit? :initarg :sky-lit
              :initform t
-             :accessor sky-lit-p)
+             :accessor chunk-sky-lit-p)
    (items :initarg :items
           :initform nil
           :type '(list Iterm)
-          :accessor items)
+          :accessor chunk-items)
    (blocks :initarg blocks
            :initform (make-array (list 16 16 16)
                                  :element-type 'World-object
                                  :initial-element (make-instance 'World-object))
-           :accessor blocks)
+           :accessor chunk-blocks)
    (biomes :initarg :biomes
            :initform (make-array (list 16 16)
                                  :initial-element :taiga)
-           :accessor biomes)))
+           :accessor chunk-biomes)))
 
+(defmethod initialize-instance :after ((instance Chunk) &rest initargs)
+  (declare (ignore initargs))
+  (unless (slot-boundp instance 'bitmask)
+    (setf (chunk-bitmask instance) (calculate-bitmask instance))))
 (defclass Chunks-column ()
   ((id :initarg :id
        :accessor id)

@@ -20,15 +20,18 @@
   `(iter (for (,remote-address-var ,connection-var) in-hashtable *connections*)
      (after-each ,@body)))
 
+(defun keep-alive-everybody ()
+  (doclients (remote-address connection)
+    (keep-alive-client connection)))
+
 (defun increment-time ()
   (setf (world-age *world*)         (1+ (world-age *world*))
-        (world-time-of-day *world*) (mod (1+ (world-time *world*))
+        (world-time-of-day *world*) (mod (1+ (world-time-of-day *world*))
                                          +ticks-per-game-day+)))
 
 (defun server-tick ()
   (increment-time)
   (doclients (remote-address connection)
-    (keep-alive-client connection)
     (send-packet 'time-update
                  connection
                  `((:long ,(world-age *world*))
