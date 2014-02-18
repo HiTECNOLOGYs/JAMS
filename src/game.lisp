@@ -3,6 +3,13 @@
 (define-constant +ticks-per-second+ 20
   :test #'=)
 
+(defvar *world*
+  (make-instance 'World
+                 :name "Main"
+                 :description "Main world."
+                 :spawn-point (list 0 0 0))
+  "Currently server supports only one world. This variables stores it.")
+
 (defthread main-thread (&aux (stopped? nil))
     (setf stopped? t)
   (iter (until stopped?)
@@ -14,7 +21,7 @@
      (after-each ,@body)))
 
 (defun increment-time ()
-  (setf (world-age *world*)  (1+ (world-age *world*))
+  (setf (world-age *world*)         (1+ (world-age *world*))
         (world-time-of-day *world*) (mod (1+ (world-time *world*))
                                          +ticks-per-game-day+)))
 

@@ -25,6 +25,7 @@
                (:file "objects")
                (:file "entities")
                (:file "map")
+               (:file "actions")
                (:file "game")
                (:file "networking")
                (:file "main")))

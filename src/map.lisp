@@ -6,12 +6,6 @@
   '((:taiga .    0)
     (:woodland . 1)))
 
-(defvar *world*
-  (make-instance 'World
-                 :name "Main"
-                 :description "Main world."
-                 :spawn-point (list 0 0 0)))
-
 
 ;;; Calsses definitions
 
