@@ -1,3 +1,5 @@
+(in-package :jams)
+
 (define-constant +server-version+ "1.5.2"
   :test #'equal)
 
