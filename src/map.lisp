@@ -49,10 +49,17 @@
    (x :initarg :x
       :accessor x)
    (chunks :initarg :chunks
-           :initform (make-array 16
-                                 :element-type 'Chunk
-                                 :initial-element (make-instance 'Chunk))
            :accessor chunks)))
+
+(defmethod initialize-instance ((instance Chunks-column) &rest initargs)
+  (declare (ignore initargs))
+  (unless (slot-boundp instance 'chunks)
+    (setf (chunks instance)
+          (make-array 16
+                      :element-type 'Chunk
+                      :initial-element (make-instance 'Chunk
+                                                      :x (x instance)
+                                                      :z (z instance))))))
 
 (defclass World ()
   ((name :initarg :name
