@@ -1,22 +1,9 @@
 (in-package :jams)
 
-(define-constant +server-version+ "1.5.2"
-  :test #'equal)
-
-(define-constant +server-supported-protocol+ 61
-  :test #'=)
-
-(define-constant +server-description+ "BOO"
-  :test #'equal)
-
-(define-constant +server-max-players+ 32
-  :test #'equal)
-
-(define-constant +server-port+ 25565
-  :test #'=)
-
-(define-constant +server-address+ iolib:+ipv4-unspecified+
-  :test #'equal)
-
-(define-constant +ticks-per-game-day+ 24000
-  :test #'=)
+(defparameter *server-version*            "1.5.2")
+(defparameter *server-supported-protocol* 61)
+(defparameter *server-description*        "BOO")
+(defparameter *server-max-players*        32)
+(defparameter *server-port*               25565)
+(defparameter *server-address*            iolib:+ipv4-unspecified+)
+(defparameter *ticks-per-game-day*        24000)

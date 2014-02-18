@@ -117,7 +117,7 @@
                               0
                               0
                               0
-                              +server-max-players+))
+                              *server-max-players*))
              connection)
   (let ((player (add-player *world* connection nick)))
     (setf (connection-status connection) :running
@@ -132,11 +132,11 @@
 (defun ping (connection magic)
   (declare (ignore magic)) ; assuming magic is always 1
   (let* ((number-of-players (get-players-count *world*))
-         (packet (encode-ping-response (write-to-string +server-supported-protocol+)
-                                       +server-version+
-                                       +server-description+
+         (packet (encode-ping-response (write-to-string *server-supported-protocol*)
+                                       *server-version*
+                                       *server-description*
                                        (write-to-string number-of-players)
-                                       (write-to-string +server-max-players+))))
+                                       (write-to-string *server-max-players*))))
     (send-data (make-packet 'kick packet)
                connection))
   (error 'Close-connection
