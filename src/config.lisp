@@ -8,3 +8,4 @@
 (defparameter *server-address*            iolib:+ipv4-unspecified+)
 (defparameter *view-distance*             8) ; chunks
 (defparameter *ticks-per-game-day*        24000)
+(defparameter *ticks-per-second*          20)
