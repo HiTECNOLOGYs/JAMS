@@ -244,7 +244,10 @@
                (get-chunk-biomes chunk)))
 
 (defmethod pack ((column Chunks-column))
-  (map 'list #'pack (chunks-column-chunks column)))
+  (iter (for chunk in-vector (chunks-column-chunks column))
+    (for i from 0)
+    (collecting (cons (list i (chunk-x chunk) (chunk-z chunk))
+                      (pack chunk)))))
 
 (defmethod pack ((region Region))
   (iter (for (position . chunks-column) in (region-chunks-columns region))
