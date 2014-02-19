@@ -61,34 +61,35 @@
            (funcall (connection-termination-handler connection)
                     connection)))))))
 
-(defgeneric connection-closed-p (connection)
-  (:method ((connection Connection))
-    (eql (connection-status connection) :closed)))
-
-(defgeneric connection-running-p (connection)
-  (:method ((connection Connection))
-    (not (connection-closed-p connection))))
-
-(defgeneric terminate-connection (connection)
-  (:method ((connection Connection))
-    (setf (connection-status connection) :closed)))
-
-(defgeneric delete-connection (connection)
-  (:method ((connection Connection))
-    (remhash (connection-id connection) *connections*)))
-
-(defgeneric send-data (data connection)
-  (:method ((data vector) (connection Connection))
-    (let ((queue (connection-data-queue connection)))
-      (lparallel.queue:with-locked-queue queue
-        (lparallel.queue:push-queue/no-lock data queue)))))
-
 (defun get-connection (connection-id)
   (gethash connection-id *connections*))
 
 (defun (setf get-connection) (new-value connection-id)
   (setf (gethash connection-id *connections*)
         new-value))
+
+(defun connection-closed-p (connection)
+  (eql (connection-status connection) :closed))
+
+(defun connection-running-p (connection)
+  (not (connection-closed-p connection)))
+
+(defun terminate-connection (connection reason)
+  (error 'Close-connection
+         :connection connection
+         :reason reason))
+
+(defun close-connection (connection)
+  (setf (connection-status connection) :closed))
+
+(defun delete-connection (connection)
+  (remhash (connection-id connection) *connections*))
+
+(defgeneric send-data (data connection)
+  (:method ((data vector) (connection Connection))
+    (let ((queue (connection-data-queue connection)))
+      (lparallel.queue:with-locked-queue queue
+        (lparallel.queue:push-queue/no-lock data queue)))))
 
 (defun open-connection (remote-address remote-port socket data-handler)
   (let ((connection (make-instance 'Connection

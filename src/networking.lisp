@@ -19,7 +19,7 @@
              (progn
                (funcall disconnector :read)
                (setf read-handler-set? nil)))
-           (terminate-connection connection)
+           (close-connection connection)
            (dispatch-connection connection #()))
 
          (read-bytes (fd event exception)

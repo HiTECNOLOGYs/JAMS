@@ -107,9 +107,7 @@
     (send-packet 'kick
                  connection
                  '("No slots available."))
-    (error 'Close-connection
-           :connection connection
-           :reason "No slots available."))
+    (terminate-connection connection "No slots available."))
   (send-data (encode-packet 'login-request
                             `((:integer (id player))
                               "default"
@@ -139,13 +137,9 @@
                                        (write-to-string *server-max-players*))))
     (send-data (make-packet 'kick packet)
                connection))
-  (error 'Close-connection
-         :connection connection
-         :reason "Kicking client after ping request"))
+  (terminate-connection connection "Kicking client after ping request"))
 
 (defun kick (connection message)
-  #+jams-debug (log-message :info "Terminating connection #~D. (~A)"
+  #+jams-debug (log-message :info "Client kicked us. Terminating connection #~D. (~A)"
                             (connection-id connection) message)
-  (error 'Close-connection
-         :connection connection
-         :reason message))
+  (terminate-connection connection message))
