@@ -16,14 +16,11 @@
       :accessor chunk-z)
    (id :initarg :id
        :accessor chunk-id)
-   (bitmask :accessor chunk-bitmask
-            :type '(unsigned-byte 16))
    (sky-lit? :initarg :sky-lit
              :initform t
              :accessor chunk-sky-lit-p)
    (items :initarg :items
           :initform nil
-          :type '(list Iterm)
           :accessor chunk-items)
    (blocks :initarg blocks
            :initform (make-array (list 16 16 16)
@@ -35,14 +32,11 @@
                                  :initial-element :taiga)
            :accessor chunk-biomes)))
 
-(defmethod initialize-instance :after ((instance Chunk) &rest initargs)
-  (declare (ignore initargs))
-  (unless (slot-boundp instance 'bitmask)
-    (setf (chunk-bitmask instance) (calculate-bitmask instance))))
-
 (defclass Chunks-column ()
   ((id :initarg :id
        :accessor chunks-column-id)
+   (bitmask :accessor chunks-column-bitmask
+            :type '(unsigned-byte 16))
    (z :initarg :z
       :accessor chunks-column-z)
    (x :initarg :x
@@ -50,15 +44,17 @@
    (chunks :initarg :chunks
            :accessor chunks-column-chunks)))
 
-(defmethod initialize-instance ((instance Chunks-column) &rest initargs)
+(defmethod initialize-instance :after ((instance Chunks-column) &rest initargs)
   (declare (ignore initargs))
+  (unless (slot-boundp instance 'bitmask)
+    (setf (chunks-column-bitmask instance) (calculate-bitmask instance)))
   (unless (slot-boundp instance 'chunks)
     (setf (chunks-column-chunks instance)
           (make-array 16
                       :element-type 'Chunk
                       :initial-element (make-instance 'Chunk
-                                                      :x (x instance)
-                                                      :z (z instance))))))
+                                                      :x (chunks-column-x instance)
+                                                      :z (chunks-column-z instance))))))
 
 (defclass World ()
   ((name :initarg :name
@@ -123,22 +119,21 @@
   (restore place))
 
 
-;;; Chunks
+;;; Chunks column
 
-(defun chunk-layer-empty-p (chunk layer)
+(defun chunk-empty-p (chunk)
   (let ((blocks (chunk-blocks chunk)))
-    (dotimes (z 16)
-      (dotimes (x 16)
-        (when (aref blocks layer x z)
-          (return-from chunk-layer-empty-p)))))
+    (dotimes (i (array-total-size blocks))
+      (when (row-major-aref blocks i)
+        (return-from chunk-empty-p))))
   t)
 
-(defun calculate-bitmask (chunk)
-  (iter (for layer below 16)
-    (summing
-     (if (chunk-layer-empty-p chunk layer)
-       (ash 1 layer)
-       0))))
+(defun calculate-bitmask (chunks-column)
+  (iter (for chunk in-vector (chunks-column-chunks chunks-column))
+    (for i from 0)
+    (summing (if (chunk-empty-p chunk)
+               (ash 1 i)
+               0))))
 
 
 
@@ -242,14 +237,14 @@
                (get-chunk-blocks-id chunk)
                (get-chunk-blocks-damage-value chunk)
                (get-chunk-blocks-light-level chunk)
-               (if (sky-lit-p chunk)
+               (if (chunk-sky-lit-p chunk)
                  (get-chunk-blocks-sky-light chunk)
                  #())
                (get-chunk-blocks-add-id chunk)
                (get-chunk-biomes chunk)))
 
 (defmethod pack ((column Chunks-column))
-  (pack (chunks column)))
+  (map 'list #'pack (chunks-column-chunks column)))
 
 (defmethod pack ((region Region))
   (iter (for (position . chunks-column) in (region-chunks-columns region))
