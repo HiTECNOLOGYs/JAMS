@@ -71,7 +71,9 @@
 ;;; Packets handlers
 
 (defun get-players-count (world)
-  (hash-table-count (world-players world)))
+  (iter (for (nickname player) in-hashtable (world-players world))
+    (when (connection-running-p (player-connection player))
+      (summing 1))))
 
 (defun keep-alive-client (connection)
   (when (connection-keep-alive-received-p connection)
