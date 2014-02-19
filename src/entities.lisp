@@ -15,6 +15,8 @@
       :accessor y)
    (z :initarg :z
       :accessor z)
+   (stance :initarg :stance
+           :accessor stance)
    (yaw :initarg :yaw
         :initform 0.0
         :accessor yaw)
@@ -54,8 +56,7 @@
 
 (defmethod initialize-instance :after ((instance Player) &rest initargs)
   (declare (ignore initargs))
-  (unless (notany (curry #'slot-boundp instance)
-                  '(x y z))
+  (when (notany (curry #'slot-boundp instance) '(x y z))
     (let ((point (get-spawn-point *world*)))
       (setf (x instance) (getf point :x)
             (y instance) (getf point :y)

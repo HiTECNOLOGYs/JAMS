@@ -156,8 +156,9 @@
   (multiple-value-bind (player exists?)
       (world-player world player-nickname)
     (if exists?
-      (setf (player-connection player)
-            connection)
+      (progn (setf (player-connection player)
+                   connection)
+             player)
       (setf (world-player world player-nickname)
             (make-instance 'Player
                            :nickname player-nickname

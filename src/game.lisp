@@ -24,7 +24,7 @@
 (defun increment-time ()
   (setf (world-age *world*)         (1+ (world-age *world*))
         (world-time-of-day *world*) (mod (1+ (world-time-of-day *world*))
-                                         +ticks-per-game-day+)))
+                                         *ticks-per-game-day*)))
 
 (defun server-tick ()
   (increment-time)
@@ -32,4 +32,4 @@
     (send-packet 'time-update
                  connection
                  `((:long ,(world-age *world*))
-                   (:long ,(world-time *world*))))))
+                   (:long ,(world-time-of-day *world*))))))

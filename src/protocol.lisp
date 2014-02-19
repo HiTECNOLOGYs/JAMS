@@ -105,21 +105,21 @@
 (defun handshake (connection protocol-id nick address port)
   #+jams-debug (log-message :info "Player connected: ~A (protocol:~A) (~A:~D)"
                             nick protocol-id address port)
-  (when (<= +server-max-players+ (get-players-count *world*))
+  (when (<= *server-max-players* (get-players-count *world*))
     (send-packet 'kick
                  connection
                  '("No slots available."))
     (terminate-connection connection "No slots available."))
-  (send-data (encode-packet 'login-request
-                            `((:integer (id player))
-                              "default"
-                              0
-                              0
-                              0
-                              0
-                              *server-max-players*))
-             connection)
   (let ((player (add-player *world* connection nick)))
+    (send-data (encode-packet 'login-request
+                              `((:integer ,(id player))
+                                "default"
+                                0
+                                0
+                                0
+                                0
+                                ,*server-max-players*))
+               connection)
     (setf (connection-status connection) :running
           (connection-client connection) player)
     (spawn-entity *world* player)))
