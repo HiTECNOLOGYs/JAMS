@@ -1,21 +1,27 @@
 (in-package :jams)
 
-(defparameter *type-sizes*
-  '((:byte          . 1)
-    (:short         . 2)
-    (:integer       . 4)
-    (:long          . 8)
-    (:float         . 4)
-    (:double        . 8)
-    (:character     . 2)
-    (:bool          . 1)
-    (:length-prefix . 2)
-    (:metadata      . :metadata)))
+;;; Basic types
+
+(defmacro define-simple-type (name size)
+  `(setf (get ,name :size) ,size))
 
 (defun get-type-size (typespec)
-  (aif (cdr (assoc typespec *type-sizes*))
+  (aif (get (if (not (listp typespec))
+              typespec
+              (second typespec))
+            :size)
     it
     0))
+
+(define-simple-type :byte          1)
+(define-simple-type :short         2)
+(define-simple-type :integer       4)
+(define-simple-type :long          8)
+(define-simple-type :float         4)
+(define-simple-type :double        8)
+(define-simple-type :character     2)
+(define-simple-type :bool          1)
+(define-simple-type :length-prefix 2)
 
 (defun two-bytes-to-fixnum (vector)
   (let ((unsigned 0))
@@ -51,14 +57,11 @@
         for shift = 0 then (+ 8 shift)
         for byte = (elt bytes position)
         for result = byte
-                   then (logior (ash byte shift) result)
+          then (logior (ash byte shift) result)
         finally (return result)))
 
 (defgeneric decode-data (data typespec modifier))
 (defgeneric encode-data (data modifier))
-
-(defmethod decode-data (data (typespec (eql :metadata)) modifier)
-  (error "Unable to decode metadata yet. =("))
 
 (defmethod decode-data ((data vector) typespec (modifier (eql nil)))
   (compose-bytes data))
@@ -153,3 +156,19 @@
     (destructuring-bind (modifier data) value
       (encode-data data modifier))
     (encode-data value nil)))
+
+
+;;; Composite types
+
+(defmacro define-composite-type (name &body fields)
+  `(setf (get ,name :structure) ',(mapcar #'first fields)
+         (get ,name :size)      (calculate-composite-type-size ',fields)))
+
+(defun composite-type-structure (name)
+  (get name :structure))
+
+(defun calculate-composite-type-size (fields)
+  (reduce #'+
+          fields
+          :key (compose #'get-type-size #'first)))
+
