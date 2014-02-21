@@ -63,6 +63,9 @@
 (defgeneric decode-data (data typespec modifier))
 (defgeneric encode-data (data modifier))
 
+(defmethod decode-data ((data vector) typespec modifier)
+  (compose-bytes data))
+
 (defmethod decode-data ((data vector) typespec (modifier (eql nil)))
   (compose-bytes data))
 
@@ -172,3 +175,26 @@
           fields
           :key (compose #'get-type-size #'first)))
 
+(defun split-vector (structure vector)
+  (when structure
+    (let* ((typespec (first structure))
+           (size (get-type-size typespec)))
+      (cons (cons typespec (subseq vector 0 size))
+            (split-vector (rest structure)
+                          (subseq vector size))))))
+
+(define-composite-type :chunk-bulk-metadata
+  (:integer chunk-x)
+  (:integer chunk-z)
+  ((:unsigned :short) primary-bit-map)
+  ((:unsigned :short) add-bit-map))
+
+(defmethod decode-data ((data vector)
+                        (typespec (eql :chunk-bulk-metadata))
+                        (modifier (eql nil)))
+  (iter
+    (for (type . field) in (split-vector (composite-type-structure typespec) data))
+    (collecting
+     (if (listp type)
+       (decode-data field (second type) (first type))
+       (decode-data field type nil)))))
