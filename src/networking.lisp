@@ -61,6 +61,10 @@
                                          host port)
                (terminate))
 
+             (invalid-packet ()
+               #+jams-debug (log-message :warning "Received invalid packet from #~D."
+                                         (connection-id connection)))
+
              (close-connection (condition)
                ;; Server initiated connection closing. Executing.
                #+jams-debug
