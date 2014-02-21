@@ -66,7 +66,7 @@
   (make-packet name (encode-packet-data data)))
 
 (defun make-keep-alive-packet ()
-  (let ((id (random (1- (ash 2 15)))))
+  (let ((id (random (1- (ash 2 (1- (* 8 (get-type-size :integer))))))))
     (values (encode-packet 'keep-alive `((:integer ,id)))
             id)))
 
