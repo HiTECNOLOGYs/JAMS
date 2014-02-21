@@ -111,15 +111,15 @@
                  '("No slots available."))
     (terminate-connection connection "No slots available."))
   (let ((player (add-player *world* connection nick)))
-    (send-data (encode-packet 'login-request
-                              `((:integer ,(id player))
-                                "default"
-                                0
-                                0
-                                0
-                                0
-                                ,*server-max-players*))
-               connection)
+    (send-packet 'login-request
+                 connection
+                 `((:integer ,(id player))
+                   "default"
+                   0
+                   0
+                   0
+                   0
+                   ,*server-max-players*))
     (setf (connection-status connection) :running
           (connection-client connection) player)
     (spawn-entity *world* player)))
@@ -137,8 +137,7 @@
                                        *server-description*
                                        (write-to-string number-of-players)
                                        (write-to-string *server-max-players*))))
-    (send-data (make-packet 'kick packet)
-               connection))
+    (send-packet 'kick connection packet))
   (terminate-connection connection "Kicking client after ping request"))
 
 (defun kick (connection message)

@@ -96,6 +96,9 @@
 (defmethod decode-data ((data vector) (typespec (eql :double)) (modifier (eql :array)))
   (mapcar #'decode-float64 data))
 
+(defmethod encode-data (data (typespec (eql :raw)))
+  (encode-data (write-to-string data) typespec))
+
 (defmethod encode-data ((data integer) (size integer))
   (if (zerop data)
     (make-array size
