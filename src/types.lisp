@@ -166,6 +166,10 @@
 
 ;;; Composite types
 
+(define-condition Invalid-structure ()
+  ((required-structure :initarg :required-structure)
+   (given-data :initarg :given-data)))
+
 (defmacro define-composite-type (name &body fields)
   `(setf (get ,name :structure) ',(mapcar #'first fields)
          (get ,name :size)      (calculate-composite-type-size ',fields)))
@@ -191,6 +195,33 @@
   (:integer chunk-z)
   ((:unsigned :short) primary-bit-map)
   ((:unsigned :short) add-bit-map))
+
+(defmethod encode-data ((data list) modifier)
+  (destructuring-bind (type . actual-data) data
+    (let ((structure (composite-type-structure type)))
+      (unless (= (length structure) (length actual-data))
+        (error 'Invalid-structure
+               :required-structure structure
+               :given-data actual-data))
+      (iter
+        (with result)
+        (finally (return result))
+        (for field-typespec in structure)
+        (for field-data in actual-data)
+        (for field-type next (if (listp field-typespec)
+                               (second field-typespec)
+                               field-typespec))
+        (setf result
+              (concatenate 'vector
+                           result
+                           (encode-data field-data
+                                        (cond
+                                          ((find field-type '(:raw :float :single :double))
+                                           field-type)
+                                          ((find field-type '(:short :integer :long))
+                                           (get-type-size field-type))
+                                          ((eql field-type :length-prefix)
+                                           2)))))))))
 
 (defmethod decode-data ((data vector)
                         (typespec (eql :chunk-bulk-metadata))
