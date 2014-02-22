@@ -5,7 +5,8 @@
 (defpacket (keep-alive #x00) ((:integer id)))
 
 (defpacket (login-request #x01) ((:integer entity-id)
-                                 (:string level-type)
+                                 ((:exclude :length-prefix) level-type-length)
+                                 (((:repeat level-type-length) :character) level-type)
                                  (:byte game-mode)
                                  (:byte dimension)
                                  (:byte difficulty)
@@ -13,8 +14,10 @@
                                  (:byte max-players)))
 
 (defpacket (handshake #x02) ((:byte protocol-id)
-                             (:string nick)
-                             (:string address)
+                             ((:exclude :length-prefix) nick-length)
+                             (((:repeat nick-length) :character) nick)
+                             ((:exclude :length-prefix) address-length)
+                             (((:repeat address-length) :character) address)
                              (:integer port)))
 
 (defpacket (time-update #x04) ((:long age-of-the-world)
@@ -49,23 +52,27 @@
                               (:bool ground-up-continuous)
                               ((:unsigned :short) primary-bit-map)
                               ((:unsigned :short) add-bit-map)
-                              (:integer compressed-size)
-                              ((:array :byte) compressed-data)))
+                              ((:exclude :integer) compressed-size)
+                              (((:repeat compressed-size) :byte) compressed-data)))
 
 (defpacket (client-statuses #xCD) ((:byte payload)))
 
 (defpacket (ping #xFE) ((:byte magic)))
 
-(defpacket (client-settings #xCC) ((:string locale)
+(defpacket (client-settings #xCC) (((:exclude :length-prefix) locale-length)
+                                   (((:repeat locale-length) :character) locale)
                                    (:byte view-distance)
                                    (:byte chat-settings)
                                    (:byte difficulty)
                                    (:bool show-cape)))
 
-(defpacket (plugin-message #xFA) ((:string channel)
-                                  ((:array :byte) data)))
+(defpacket (plugin-message #xFA) (((:exclude :length-prefix) channel-name-length)
+                                  (((:repeat channel-name-length) :character) channel)
+                                  ((:exclude length-prefix) data-length)
+                                  (((:repeat data-length) :byte) data)))
 
-(defpacket (kick #xFF) ((:string message)))
+(defpacket (kick #xFF) ((:exclude message-length)
+                        (((:repeat message-length) :character) message)))
 
 
 ;;; Packets handlers

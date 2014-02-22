@@ -12,11 +12,15 @@
   "Structure format (type name-for-binding)."
   `(progn
      ,(when body
-        `(defun ,name ,(cons 'connection (mapcar #'second structure))
+        `(defun ,name ,(cons 'connection (iter (for (typespec id) in structure)
+                                           (unless (and (listp typespec)
+                                                        (eql (first typespec)
+                                                             :exclude))
+                                             (collecting id))))
            (declare (ignorable connection))
            ,@body))
      (setf (gethash ,id *packets*) ',name
-           (get ',name :structure) ',(mapcar #'first structure)
+           (get ',name :structure) ',structure
            (get ',name :id)         ,id)))
 
 (defun get-packet-name (id)
@@ -82,47 +86,53 @@
           (+ start shift)
           (+ end shift)))
 
-(defun read-field (vector shift type modifier)
-  (if (or (and (eql type :character)
-               (eql modifier :array))
-          (and (eql type :string)
-               (null modifier)))
-    (let* ((prefix-size (get-type-size :length-prefix))
-           (prefix (subseq-shift vector 0 prefix-size shift))
-           (length (decode-data prefix :short nil))
-           (bytes-length (* (get-type-size :character) length)))
-      (values (decode-data (subseq-shift vector
-                                         prefix-size
-                                         (+ bytes-length prefix-size)
-                                         shift)
-                           :string
-                           nil)
-              (+ prefix-size bytes-length)))
-    (let ((size (get-type-size type)))
-      (values (decode-data (subseq-shift vector
-                                         0
-                                         size
-                                         shift)
-                           type
-                           modifier)
-              size))))
+(defgeneric read-field (bindings vector shift type count))
 
-(defun read-typedef (vector shift type-definition)
-  (if (listp type-definition)
+(defmethod read-field (bindings vector shift type (count integer))
+  (let* ((length (* (get-type-size type) count)))
+    (values (decode-data (subseq-shift vector 0 length shift)
+                         type
+                         (when (< 1 count)
+                           :array))
+            length)))
+
+(defmethod read-field ((bindings list) (vector vector) (shift integer) type (count (eql nil)))
+  (declare (ignore count))
+  (read-field bindings vector shift type 1))
+
+(defmethod read-field ((bindings list) (vector vector) (shift integer) type (count symbol))
+  (read-field bindings vector shift type (cdr (assoc count bindings))))
+
+(defun read-typedef (bindings vector shift type-definition)
+  (if (not (listp type-definition))
+    (read-field bindings vector shift type-definition nil)
     (destructuring-bind (modifier type) type-definition
-      (read-field vector shift type modifier))
-    (read-field vector shift type-definition nil)))
+      (if (not (listp modifier))
+        (if (eql modifier :exclude)
+          (apply #'values
+                 (append (multiple-value-list (read-field bindings vector shift type 1))
+                         '(t)))
+          (read-field bindings vector shift type 1))
+        (when (and (eql (first modifier) :repeat)
+                   (or (numberp (second modifier))
+                       (symbolp (second modifier))))
+          (read-field bindings vector shift type (second modifier)))))))
 
 (defun read-packet-from-vector (vector)
   (let* ((packet-id (svref vector 0))
          (packet (subseq vector 1))
          (packet-structure (packet-definition-structure (get-packet-name packet-id))))
-    (cons packet-id
-          (iter (for field in packet-structure)
-                (for shift first 0 then (+ shift length))
-                (for (data length)
-                     next (multiple-value-list (read-typedef packet shift field)))
-                (collecting data)))))
+    (iter
+      (with bindings)
+      (for (field name) in packet-structure)
+      (for shift first 0 then (+ shift length))
+      (for ((data length) exclude-from-result?) next
+           (multiple-value-list (read-typedef bindings packet shift field)))
+      (push (cons name data) bindings)
+      (unless exclude-from-result?
+        (collect data into result))
+      (finally (return (values (cons packet-id result)
+                               bindings))))))
 
 (defun process-packet (connection vector)
   (destructuring-bind (packet-id . packet-data)
