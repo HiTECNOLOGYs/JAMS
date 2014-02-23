@@ -546,8 +546,7 @@
   (when (<= *server-max-players* (get-players-count *world*))
     (send-packet 'kick
                  connection
-                 '("No slots available."))
-    (terminate-connection connection "No slots available."))
+                 '("No slots available.")))
   (let ((player (add-player *world* connection nick)))
     (send-packet 'login-request
                  connection
@@ -575,8 +574,7 @@
                                        *server-description*
                                        (write-to-string number-of-players)
                                        (write-to-string *server-max-players*))))
-    (send-packet 'kick connection packet))
-  (terminate-connection connection "Kicking client after ping request"))
+    (send-packet 'kick connection packet)))
 
 (defun kick (connection message)
   #+jams-debug (log-message :info "Client kicked us. Terminating connection #~D. (~A)"
