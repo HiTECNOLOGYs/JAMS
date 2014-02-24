@@ -96,7 +96,10 @@
 *** Staying at 1.5.2 protocol (61)
 *** What I'm not going to implement:
 ***** Almost anything not direcrly related to PvP/PvE
-*** What I'm going to implement:
+*** TODO What I'm probably going to implement [0/1]
+***** TODO Mobs AI
+*** TODO What I'm going to implement [0/6]
+***** TODO Battle log-offs prevention mechanism
 ***** TODO Controllable mobs
 ***** TODO Capturable points
 ***** TODO Shops
@@ -106,8 +109,8 @@
 * 2.0 MMO RPG
   Many features I'll need at this point will probably require client modification but
   that's pretty much possible. I'll take care of it once I reach this stage.
-*** TODO Migrate to 1.7.2 protcol (version 4)
-*** What I'm (most definitely) not going to implement:
+*** TODO Migrate to 1.7.2 protcol (4)
+*** What I'm (most definitely) not going to implement
 ***** Redstone
       Complicated, common use cases can be handled in much simpler and more reliable ways.
 ***** Integrated map generator
@@ -118,7 +121,9 @@
       I don't need these things.
 ***** Regular Minecraft game mechanics
       Screw Minecraft mechanics.
-*** What I'm going to implement:
+*** TODO What I'm probably going to implement [0/1]
+***** TODO Support for distributed computation
+*** TODO What I'm going to implement [0/11]
 ***** TODO HUGE maps support
 ***** TODO More advanced hunger/health system
 ***** TODO More advanced fighting system
