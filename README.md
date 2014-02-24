@@ -10,7 +10,7 @@ Dependencies
 * **ieee-floats** - floats/double decoding/encoding
 * **lparallel** - queues/threading
 * **bordeaux-threads** - threading
-* **salza2** - compression
+* **salza2** - data compression
 * **cl-store** - serialization
 * **alexandria** - lots of handy stuff
 * **trivial-garbage** - portability layer for GC
@@ -19,10 +19,12 @@ Dependencies
 
 What exactly can it do?
 ------------------------
-Nothing, but I can do something. For example, I can draw a little cube here:
+Nothing, but I can do something. For example, I can draw a little cube:
 
     --------
     |      |
-    |      |
+    | Weee |
     |      |
     --------
+
+It's definitely a cube, you're just looking at it at wrong angle.
