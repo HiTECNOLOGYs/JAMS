@@ -1,6 +1,7 @@
 (defsystem :jams
   :author "Mark Fedurin <hitecnologys@gmail.com>"
   :description "Simple Minecraft server."
+  :version (:read-file-form "version.lisp-expr")
   :depends-on (:flexi-streams
                :iolib
                :ieee-floats
@@ -29,3 +30,6 @@
                (:file "game")
                (:file "networking")
                (:file "main")))
+
+
+(pushnew :jams-debug *features*)
