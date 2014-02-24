@@ -55,10 +55,14 @@
                #(#x00 #x00)
                (encode-data max-players :raw)))
 
-(defun encode-packet-data (data)
-  (reduce (curry #'concatenate 'vector)
-          data
-          :key #'encode-value))
+(defun encode-packet-data (name data)
+  (iter
+    (with result = #())
+    (for field-type in (packet-definition-structure name))
+    (for field-data in data)
+    (setf result
+          (concatenate 'vector result (encode-value field-data field-type)))
+    (finally (return result))))
 
 (defun make-packet (name data)
   (let ((packet-id (packet-definition-id name)))
@@ -66,16 +70,16 @@
                  (vector packet-id)
                  data)))
 
-(defun encode-packet (name data)
-  (make-packet name (encode-packet-data data)))
+(defun encode-packet (name &rest data)
+  (make-packet name (encode-packet-data name data)))
 
 (defun make-keep-alive-packet ()
   (let ((id (random (1- (ash 2 (1- (* 8 (get-type-size :integer))))))))
-    (values (encode-packet 'keep-alive `((:integer ,id)))
+    (values (encode-packet 'keep-alive id)
             id)))
 
-(defun send-packet (name connection data)
-  (send-data (encode-packet name data)
+(defun send-packet (name connection &rest data)
+  (send-data (apply #'encode-packet name data)
              connection))
 
 
@@ -94,14 +98,33 @@
                          type
                          (when (< 1 count)
                            :array))
-            length)))
+            (+ shift length))))
 
-(defmethod read-field ((bindings list) (vector vector) (shift integer) type (count (eql nil)))
+(defmethod read-field ((bindings list) (vector vector) (shift integer) type
+                       (count (eql nil)))
   (declare (ignore count))
   (read-field bindings vector shift type 1))
 
 (defmethod read-field ((bindings list) (vector vector) (shift integer) type (count symbol))
   (read-field bindings vector shift type (cdr (assoc count bindings))))
+
+(defun read-array (bindings vector shift element-type)
+  (let ((prefix-size (get-type-size :length-prefix)))
+    (read-field bindings
+                vector
+                (+ shift prefix-size)
+                element-type
+                (decode-data (subseq-shift vector 0 prefix-size shift)
+                             :length-prefix
+                             nil))))
+
+(defmethod read-field ((bindings list) (vector vector) (shift integer) (type (eql :string))
+                       (count (eql nil)))
+  (read-array bindings vector shift :character))
+
+(defmethod read-field ((bindings list) (vector vector) (shift integer)
+                       (type (eql :byte-array)) (count (eql nil)))
+  (read-array bindings vector shift :byte))
 
 (defun read-typedef (bindings vector shift type-definition)
   (if (not (listp type-definition))
@@ -125,8 +148,8 @@
     (iter
       (with bindings)
       (for (field name) in packet-structure)
-      (for shift first 0 then (+ shift length))
-      (for ((data length) exclude-from-result?) next
+      (for shift first 0 then new-shift)
+      (for (data new-shift exclude-from-result?) next
            (multiple-value-list (read-typedef bindings packet shift field)))
       (push (cons name data) bindings)
       (unless exclude-from-result?
