@@ -141,6 +141,11 @@
     (0 nil)
     (1 t)))
 
+;;; Byte-arrays
+
+(defmethod decode-data ((data vector) (typespec (eql :byte)) (modifier (eql :array)))
+  data)
+
 ;;; --------
 ;;; Encoding
 
@@ -320,14 +325,22 @@
           data
           (composite-type-structure typespec)))
 
-(defmethod decode-data ((data vector)
-                        typespec
-                        (modifier (eql nil)))
-  (map 'vector
-       #'(lambda (elt field-type)
-           (decode-data elt field-type nil))
-       data
-       (composite-type-structure typespec)))
+(defmethod decode-data ((data vector) typespec (modifier (eql nil)))
+  (iter
+    (for field-type in (composite-type-structure typespec))
+    (for field-type-size next (get-type-size field-type))
+    (for shift first 0 then (+ shift field-type-size))
+    (collecting (decode-data (subseq-shift data 0 field-type-size shift)
+                             field-type
+                             nil))))
+
+(defmethod decode-data ((data vector) typespec (modifier (eql :array)))
+  (let ((data-length (length data))
+        (type-size (get-type-size typespec)))
+    (iter (for i below (floor (/ data-length type-size)))
+      (collecting (decode-data (subseq data i (+ i type-size))
+                               typespec
+                               nil)))))
 
 (defmethod encode-data ((data vector) typespec)
   (apply #'concatenate 'vector
