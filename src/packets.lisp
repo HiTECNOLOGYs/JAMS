@@ -58,7 +58,7 @@
 (defun encode-packet-data (name data)
   (iter
     (with result = #())
-    (for field-type in (packet-definition-structure name))
+    (for (field-type field-name) in (packet-definition-structure name))
     (for field-data in data)
     (setf result
           (concatenate 'vector result (encode-value field-data field-type)))

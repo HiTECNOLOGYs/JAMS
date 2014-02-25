@@ -134,6 +134,13 @@
 (defmethod decode-data ((data vector) (typespec (eql :string)) (modifier (eql nil)))
   (decode-data data :character :array))
 
+;;; Boolean
+
+(defmethod decode-data ((data vector) (typespec (eql :bool)) (modifier (eql nil)))
+  (switch ((svref data 0) :test #'=)
+    (0 nil)
+    (1 t)))
+
 ;;; --------
 ;;; Encoding
 
@@ -174,6 +181,26 @@
 (defmethod encode-data ((data number) (typespec (eql :long)))
   (encode-number data (get-type-size typespec)))
 
+(defmethod encode-data ((data vector) (typespec (eql :byte)))
+  (reduce (curry #'concatenate 'vector)
+          data
+          :key #'(lambda (elt) (encode-data elt typespec))))
+
+(defmethod encode-data ((data vector) (typespec (eql :short)))
+  (reduce (curry #'concatenate 'vector)
+          data
+          :key #'(lambda (elt) (encode-data elt typespec))))
+
+(defmethod encode-data ((data vector) (typespec (eql :integer)))
+  (reduce (curry #'concatenate 'vector)
+          data
+          :key #'(lambda (elt) (encode-data elt typespec))))
+
+(defmethod encode-data ((data vector) (typespec (eql :long)))
+  (reduce (curry #'concatenate 'vector)
+          data
+          :key #'(lambda (elt) (encode-data elt typespec))))
+
 ;; Unsigned
 
 (defmethod encode-data ((data number) (typespec (eql :unsigned-byte)))
@@ -187,6 +214,26 @@
 
 (defmethod encode-data ((data number) (typespec (eql :unsigned-long)))
   (encode-number data (get-type-size typespec)))
+
+(defmethod encode-data ((data vector) (typespec (eql :unsigned-byte)))
+  (reduce (curry #'concatenate 'vector)
+          data
+          :key #'(lambda (elt) (encode-data elt typespec))))
+
+(defmethod encode-data ((data vector) (typespec (eql :unsigned-short)))
+  (reduce (curry #'concatenate 'vector)
+          data
+          :key #'(lambda (elt) (encode-data elt typespec))))
+
+(defmethod encode-data ((data vector) (typespec (eql :unsigned-integer)))
+  (reduce (curry #'concatenate 'vector)
+          data
+          :key #'(lambda (elt) (encode-data elt typespec))))
+
+(defmethod encode-data ((data vector) (typespec (eql :unsigned-long)))
+  (reduce (curry #'concatenate 'vector)
+          data
+          :key #'(lambda (elt) (encode-data elt typespec))))
 
 ;;; Floats
 
@@ -227,7 +274,7 @@
 
 (defun encode-value (value typespec)
   (if (listp typespec)
-    (encode-data value (first typespec))
+    (encode-data value (second typespec))
     (encode-data value typespec)))
 
 
@@ -259,41 +306,34 @@
             (split-vector (rest structure)
                           (subseq vector size))))))
 
-(defmethod encode-data ((data list) typespec)
+(defmethod encode-data :around ((data list) typespec)
   (let ((structure (composite-type-structure typespec)))
     (unless (= (length structure) (length data))
       (error 'Invalid-structure
              :required-structure structure
              :given-data data))
-    (iter
-      (with result)
-      (finally (return result))
-      (for field-typespec in structure)
-      (for field-data in data)
-      (for field-type next (if (listp field-typespec)
-                               (second field-typespec)
-                               field-typespec))
-      (setf result
-            (concatenate 'vector
-                         result
-                         (encode-data field-data
-                                      (cond
-                                        ((find field-type '(:raw :float :single :double))
-                                         field-type)
-                                        ((find field-type '(:short :integer :long))
-                                         (get-type-size field-type))
-                                        ((eql field-type :length-prefix)
-                                         2))))))))
+    (call-next-method)))
+
+(defmethod encode-data ((data list) typespec)
+  (mapcar #'(lambda (elt field-type)
+              (encode-data elt field-type))
+          data
+          (composite-type-structure typespec)))
 
 (defmethod decode-data ((data vector)
-                        (typespec (eql :chunk-bulk-metadata))
+                        typespec
                         (modifier (eql nil)))
-  (iter
-    (for (type . field) in (split-vector (composite-type-structure typespec) data))
-    (collecting
-     (if (listp type)
-       (decode-data field (second type) (first type))
-       (decode-data field type nil)))))
+  (map 'vector
+       #'(lambda (elt field-type)
+           (decode-data elt field-type nil))
+       data
+       (composite-type-structure typespec)))
+
+(defmethod encode-data ((data vector) typespec)
+  (apply #'concatenate 'vector
+         (apply #'append
+                (map 'list #'(lambda (elt) (encode-data elt typespec))
+                     data))))
 
 (define-composite-type :chunk-bulk-metadata
   (:integer chunk-x)

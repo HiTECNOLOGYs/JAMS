@@ -277,11 +277,11 @@
             (:byte destroy-stage)))
 
 (defpacket (chunk-bulk #x38)
-           ((:short chunks-column-count)
+           (((:exclude :short) chunks-column-count)
             ((:exclude :integer) data-length)
             (:bool sky-lit?)
             (((:repeat data-length) :byte) data)
-            (((:repeat data-length) :chunk-bulk-metadata) metadata)))
+            (((:repeat chunks-column-count) :chunk-bulk-metadata) metadata)))
 
 (defpacket (explosion #x3C)
            ((:double x)
