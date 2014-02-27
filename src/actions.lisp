@@ -21,19 +21,19 @@
     ;; TODO Send entities here
     (send-packet 'spawn-position
                  connection
-                 `((:integer ,(getf spawn-point :x))
-                   (:integer ,(getf spawn-point :y))
-                   (:integer ,(getf spawn-point :z))))
+                 (getf spawn-point :x)
+                 (getf spawn-point :y)
+                 (getf spawn-point :z))
     ;; TDOD Send inventory here
     (send-packet 'player-position-and-look
                  connection
-                 `((:double ,(x player))
-                   (:double ,(y player))
-                   (:double ,(+ 2.0 (x player)))
-                   (:double ,(z player))
-                   ,(yaw player)
-                   ,(pitch player)
-                   t))
+                 (x player)
+                 (y player)
+                 (+ 2.0 (x player))
+                 (z player)
+                 (yaw player)
+                 (pitch player)
+                 t)
     ;; TODO Receive look+position packet sent from client here
     ;;      in order to verify spawn position.
     )

@@ -167,7 +167,7 @@
 
 ;;; Raw
 
-(defmethod encode-data (data (typespec (eql :raw)))
+(defmethod encode-data (data typespec)
   (encode-data (write-to-string data) typespec))
 
 ;;; Integers

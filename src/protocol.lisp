@@ -515,13 +515,13 @@
   (let ((player (add-player *world* connection nick)))
     (send-packet 'login-request
                  connection
-                 `((:integer ,(id player))
-                   "default"
-                   0
-                   0
-                   0
-                   0
-                   ,*server-max-players*))
+                 (id player)
+                 "default"
+                 0
+                 0
+                 0
+                 0
+                 *server-max-players*)
     (setf (connection-status connection) :running
           (connection-client connection) player)
     (spawn-entity *world* player)))

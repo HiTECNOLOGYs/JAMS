@@ -36,14 +36,14 @@
 
 (defun encode-ping-response (protocol-version server-version motd player-count max-players)
   (concatenate 'vector
-               (encode-value (list :short
-                                   (+ 3 ; header (0xA7 0x31) + null byte
-                                      4 ; separators (null bytes)
-                                      (length protocol-version)
-                                      (length server-version)
-                                      (length motd)
-                                      (length player-count)
-                                      (length max-players))))
+               (encode-value (+ 3 ; header (0xA7 0x31) + null byte
+                                4 ; separators (null bytes)
+                                (length protocol-version)
+                                (length server-version)
+                                (length motd)
+                                (length player-count)
+                                (length max-players))
+                             :short)
                #(#x00 #xA7 #x00 #x31 #x00 #x00)
                (encode-data protocol-version :raw)
                #(#x00 #x00)
