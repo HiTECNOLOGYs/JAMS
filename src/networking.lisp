@@ -240,8 +240,9 @@
                         port))
          (sb-sys:interactive-interrupt ()
            (log-message :info "Caught ^C. Exiting."))
-         (simple-error (condition)
-           (log-message :error "Unknown error: ~A. Exiting." condition)))
+         ;; (simple-error (condition)
+         ;;   (log-message :error "Unknown error: ~A. Exiting." condition))
+         )
     (cleanup-networking)
     #+jams-debug (log-message :info "Stopped network listener on port ~D."
                               port)))
