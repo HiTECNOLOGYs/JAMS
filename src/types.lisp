@@ -78,6 +78,9 @@
 
 ;;; Integers
 
+(defmethod decode-data ((data vector) (typespec (eql :length-prefix)) (modifier (eql nil)))
+  (compose-bytes data))
+
 ;; Signed
 
 (defmethod decode-data ((data vector) (typespec (eql :byte)) (modifier (eql nil)))
@@ -243,10 +246,10 @@
 ;;; Floats
 
 (defmethod encode-data ((data float) (typespec (eql :float)))
-  (encode-data (encode-float32 data) 4))
+  (encode-data (encode-float32 data) :integer))
 
 (defmethod encode-data ((data float) (typespec (eql :double)))
-  (encode-data (encode-float64 data) 8))
+  (encode-data (encode-float64 data) :long))
 
 ;;; Strings
 

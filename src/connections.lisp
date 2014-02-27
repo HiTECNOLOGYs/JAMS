@@ -49,13 +49,15 @@
                      connection received-data))))
       (case (connection-status connection)
         (:opening
-         (call-data-handler))
+         (unless (zerop (length received-data))
+           (call-data-handler)))
         (:running
-         (call-data-handler)
+         (unless (zerop (length received-data))
+           (call-data-handler))
          (when (< +max-no-keep-alive-time+
                   (- (connection-last-keep-alive-time connection)
                      (get-universal-time)))
-           (terminate-connection connection)))
+           (terminate-connection connection "Didn't receive keep alive.")))
         (:closed
          (when (slot-boundp connection 'termination-handler)
            (funcall (connection-termination-handler connection)

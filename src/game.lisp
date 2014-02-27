@@ -4,7 +4,7 @@
   (make-instance 'World
                  :name "Main"
                  :description "Main world."
-                 :spawn-point (list 0 0 0))
+                 :spawn-point (list 0.0 0.0 0.0))
   "Currently server supports only one world. This variables stores it.")
 
 (defthread main-thread (&aux (stopped? nil))
