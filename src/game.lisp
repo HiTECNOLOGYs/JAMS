@@ -29,6 +29,7 @@
 (defun server-tick ()
   (increment-time)
   (doclients (remote-address connection)
+    #+nil
     (send-packet 'time-update
                  connection
                  `((:long ,(world-age *world*))
