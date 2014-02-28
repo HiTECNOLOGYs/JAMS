@@ -16,8 +16,6 @@
       :accessor chunk-z)
    (id :initarg :id
        :accessor chunk-id)
-   (bitmask :accessor chunk-bitmask
-            :type '(unsigned-byte 16))
    (sky-lit? :initarg :sky-lit
              :initform t
              :accessor chunk-sky-lit-p)
@@ -33,11 +31,6 @@
            :initform (make-array (list 16 16)
                                  :initial-element :taiga)
            :accessor chunk-biomes)))
-
-(defmethod initialize-instance :after ((instance Chunk) &rest initargs)
-  (declare (ignore initargs))
-  (unless (slot-boundp instance 'bitmask)
-    (setf (chunk-bitmask instance) (calculate-chunk-bitmask instance))))
 
 (defclass Chunks-column ()
   ((id :initarg :id
@@ -128,14 +121,6 @@
 
 ;;; Chunks column
 
-(defun chunk-layer-empty-p (chunk layer)
-  (let ((blocks (chunk-blocks chunk)))
-    (dotimes (z 16)
-      (dotimes (x 16)
-        (when (aref blocks layer x z)
-          (return-from chunk-layer-empty-p))))
-    t))
-
 (defun chunk-empty-p (chunk)
   (let ((blocks (chunk-blocks chunk)))
     (dotimes (i (array-total-size blocks))
@@ -143,13 +128,7 @@
         (return-from chunk-empty-p))))
   t)
 
-(defun calculate-chunk-column-bitmask (chunk)
-  (iter (for layer below 16)
-    (summing (if (chunk-layer-empty-p chunk layer)
-               0
-               (ash 1 layer)))))
-
-(defun calculate-chunks-chunks-bitmask (chunks-column)
+(defun calculate-bitmask (chunks-column)
   (iter (for chunk in-vector (chunks-column-chunks chunks-column))
     (for i from 0)
     (summing (if (chunk-empty-p chunk)
