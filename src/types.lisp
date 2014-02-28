@@ -323,10 +323,11 @@
     (call-next-method)))
 
 (defmethod encode-data ((data list) typespec)
-  (mapcar #'(lambda (elt field-type)
-              (encode-data elt field-type))
-          data
-          (composite-type-structure typespec)))
+  (apply #'concatenate 'vector
+         (mapcar #'(lambda (elt field-type)
+                     (encode-data elt field-type))
+                 data
+                 (composite-type-structure typespec))))
 
 (defmethod decode-data ((data vector) typespec (modifier (eql nil)))
   (iter
@@ -347,9 +348,8 @@
 
 (defmethod encode-data ((data vector) typespec)
   (apply #'concatenate 'vector
-         (apply #'append
-                (map 'list #'(lambda (elt) (encode-data elt typespec))
-                     data))))
+         (map 'list #'(lambda (elt) (encode-data elt typespec))
+              data)))
 
 (define-composite-type :chunk-bulk-metadata
   (:integer chunk-x)
