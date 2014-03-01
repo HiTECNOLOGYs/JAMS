@@ -46,15 +46,15 @@
 
 (defmethod initialize-instance :after ((instance Chunks-column) &rest initargs)
   (declare (ignore initargs))
-  (unless (slot-boundp instance 'bitmask)
-    (setf (chunks-column-bitmask instance) (calculate-chunks-column-bitmask instance)))
   (unless (slot-boundp instance 'chunks)
     (setf (chunks-column-chunks instance)
           (make-array 16
                       :element-type 'Chunk
                       :initial-element (make-instance 'Chunk
                                                       :x (chunks-column-x instance)
-                                                      :z (chunks-column-z instance))))))
+                                                      :z (chunks-column-z instance)))))
+  (unless (slot-boundp instance 'bitmask)
+    (setf (chunks-column-bitmask instance) (calculate-bitmask instance))))
 
 (defclass World ()
   ((name :initarg :name
@@ -94,7 +94,7 @@
 (defun get-region (world x1 z1 x2 z2)
   (iter (for x from x1 to x2)
     (appending (iter (for z from z1 to z2)
-                 (collecting (cons (list x z) (world-chunks-column world x z)))))))
+                 (collecting (world-chunks-column world x z))))))
 
 (defmethod initialize-instance :after ((instance Region) &key world)
   (unless (slot-boundp instance 'chunks-columns)
@@ -140,7 +140,8 @@
 ;;; World
 
 (defun world-chunks-column (world x z)
-  (gethash (list x z) (world-map world)))
+  (gethash (list (floor x) (floor z))
+           (world-map world)))
 
 (defun (setf world-chunks-column) (new-value world x z)
   (setf (gethash (list x z) (world-map world)) new-value))
@@ -245,15 +246,17 @@
                (get-chunk-biomes chunk)))
 
 (defmethod pack ((column Chunks-column))
-  (iter (for chunk in-vector (chunks-column-chunks column))
-    (for i from 0)
-    (collecting (cons (list i (chunk-x chunk) (chunk-z chunk))
-                      (pack chunk)))))
+  (apply #'concatenate 'vector
+         (iter
+           (for chunk in-vector (chunks-column-chunks column))
+           (for i from 0)
+           (collecting (pack chunk)))))
 
 (defmethod pack ((region Region))
-  (iter (for (position . chunks-column) in (region-chunks-columns region))
-    (when chunks-column
-      (collecting (pack chunks-column)))))
+  (apply #'concatenate 'vector
+         (iter (for chunks-column in (region-chunks-columns region))
+           (when chunks-column
+             (collecting (pack chunks-column))))))
 
 (defmethod pack :around ((chunk Chunk))
   (salza2:compress-data (call-next-method)
