@@ -8,4 +8,7 @@
         :alexandria
         :anaphora
         :iterate)
+  (:shadow :float
+           :character
+           :boolean)
   (:export :main))
