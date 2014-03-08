@@ -255,13 +255,11 @@
                  data)))
 
 (defmethod decode-data ((typespec Composite-type) (data vector))
-  (iter
-    (for field-type in (composite-type-structure typespec))
-    (for field-type-size next (binary-type-size (get-type field-type)))
-    (with shift = 0)
-    (collecting (decode-data field-type
-                             (subseq-shift data 0 field-type-size shift)))
-    (setf shift (+ shift field-type-size))))
+  (with-input-from-sequence (data-stream data)
+    (iter
+      (for field-type in (composite-type-structure typespec))
+      (for field-type-size next (binary-type-size (get-type field-type)))
+      (collecting (decode-data field-type (read-bytes data-stream field-type-size))))))
 
 ;;; ------
 ;;; Types

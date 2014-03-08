@@ -17,3 +17,10 @@
             (otherwise (error "Unknown log message type: ~S" type)))
           message
           arguments))
+
+(defun read-bytes (stream count)
+  (iter
+    (for i from 0 below count)
+    (with result = (make-array count))
+    (setf (svref result i) (read-byte stream))
+    (finally (return result))))
