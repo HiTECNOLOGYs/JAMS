@@ -3,10 +3,10 @@
 (define-constant +max-number-of-threads+ 4)
 
 ;;; General stuff
+
 (defmacro with-delay (value &body body)
   `(progn (sleep ,value)
           ,@body))
-
 
 ;;; Tasks queue
 

@@ -1,5 +1,9 @@
 (in-package :jams)
 
+;;; ***************************************************************************************
+;;; Packets defintion
+;;; ***************************************************************************************
+
 (defparameter *packets* (make-hash-table))
 
 (define-condition Invalid-packet (error)
@@ -31,6 +35,10 @@
 
 (defun packet-definition-structure (name)
   (get name :structure))
+
+;;; ***************************************************************************************
+;;; Packing data and building packets
+;;; ***************************************************************************************
 
 (defgeneric pack (object))
 
@@ -82,8 +90,10 @@
   (send-data (apply #'encode-packet name data)
              connection))
 
+;;; ***************************************************************************************
+;;; Packets reader
+;;; ***************************************************************************************
 
-;;; Packets processing
 
 (defun subseq-shift (vector start end shift)
   (subseq vector
@@ -156,6 +166,10 @@
         (collect data into result))
       (finally (return (values (cons packet-id result)
                                bindings))))))
+
+;;; ***************************************************************************************
+;;; Packets processing
+;;; ***************************************************************************************
 
 (defun process-packet (connection vector)
   (destructuring-bind (packet-id . packet-data)
