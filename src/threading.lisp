@@ -93,11 +93,14 @@
       (setf (thread-thread name) thread)
       thread)))
 
+(defun stop-thread-timers (name)
+  (mapc (compose #'unschedule-timer #'cdr) (thread-timers name))
+  (when (notany (compose #'timer-scheduled-p #'cdr) (thread-timers name))
+    (not (setf (thread-timers name) nil))))
+
 (defun stop-thread (name)
   (when (thread-running-p name)
-    (mapc (compose #'unschedule-timer #'cdr) (thread-timers name))
-    (when (notany (compose #'timer-scheduled-p #'cdr) (thread-timers name))
-      (setf (thread-timers name) nil))
+    (stop-thread-timers name)
     (interrupt-thread (thread-thread name)
                       #'signal 'Thread-termination)
     t))
@@ -126,9 +129,10 @@
                                    :name name
                                    :thread thread)))
     (when-let (old-timer (thread-timer thread-name name))
-      (error 'Timer-exists
-             :old-timer old-timer
-             :new-timer timer))
+      (when (timer-scheduled-p old-timer)
+        (error 'Timer-exists
+               :old-timer old-timer
+               :new-timer timer)))
     (sb-ext:schedule-timer timer time
                            :repeat-interval repeat-interval
                            :absolute-p absolute-p)
