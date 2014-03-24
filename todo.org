@@ -5,7 +5,7 @@
 #+OPTIONS: toc:2
 #+FILETAGS: :jams:projects:work:
 
-* 0.1 First working release
+* TODO 0.1 First working release
 *** TODO Packets [11/80]
 ***** DONE Keep Alive (0x00)
 ***** DONE Login Request (0x01)
@@ -86,15 +86,13 @@
 ***** TODO Encryption Key Request (0xFD)
 ***** DONE Server List Ping (0xFE)
 ***** DONE Disconnect/Kick (0xFF)
-
-* 0.2 Alpha release
+* TODO 0.2 Alpha release
 *** TODO Plugins support
 *** TODO Config files support
 *** TODO Encryption support
-
-* 1.0 PvP arenas
+* TODO 1.0 PvP arenas
 *** Staying at 1.5.2 protocol (61)
-*** What I'm not going to implement:
+*** What I'm not going to implement
 ***** Almost anything not direcrly related to PvP/PvE
 *** TODO What I'm probably going to implement [0/1]
 ***** TODO Mobs AI
@@ -105,8 +103,7 @@
 ***** TODO Shops
 ***** TODO More balanced equipment
 ***** TODO Fortifications/Fortresses
-
-* 2.0 MMO RPG
+* TODO 2.0 MMO RPG
   Many features I'll need at this point will probably require client modification but
   that's pretty much possible. I'll take care of it once I reach this stage.
 *** TODO Migrate to 1.7.2 protcol (4)
