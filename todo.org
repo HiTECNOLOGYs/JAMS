@@ -6,6 +6,7 @@
 #+FILETAGS: :jams:projects:work:
 
 * TODO 0.1 First working release
+*** TODO Migrate to 1.7.6 protcol (5)
 *** TODO Packets [11/80]
 ***** DONE Keep Alive (0x00)
 ***** DONE Login Request (0x01)
@@ -98,7 +99,6 @@
 *** TODO Transactional map format support
 *** TODO Pluggable protocol modules
 * TODO 1.0 PvP arenas
-*** Staying at 1.5.2 protocol (61)
 *** What I'm not going to implement
 ***** Almost anything not direcrly related to PvP/PvE
 *** TODO What I'm probably going to implement [0/1]
@@ -114,7 +114,6 @@
   Many features I'll need at this point will probably require client
   modification but that's pretty much possible. I'll take care of it once I
   reach this stage.
-*** TODO Migrate to 1.7.2 protcol (4)
 *** What I'm (most definitely) not going to implement
 ***** Redstone
       Complicated, common use cases can be handled in much simpler and more
