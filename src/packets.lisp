@@ -1,8 +1,8 @@
 (in-package :jams)
 
-;;; ***************************************************************************************
-;;; Packets defintion
-;;; ***************************************************************************************
+;;; **************************************************************************
+;;;  Packets defintion
+;;; **************************************************************************
 
 (defparameter *packets* (make-hash-table))
 
@@ -36,9 +36,9 @@
 (defun packet-definition-structure (name)
   (get name :structure))
 
-;;; ***************************************************************************************
-;;; Packing data and building packets
-;;; ***************************************************************************************
+;;; **************************************************************************
+;;;  Packing data and building packets
+;;; **************************************************************************
 
 (defgeneric pack (object))
 
@@ -82,7 +82,7 @@
   (make-packet name (encode-packet-data name data)))
 
 (defun make-keep-alive-packet ()
-  (let ((id (random (1- (ash 2 (1- (* 8 (get-type-size :integer))))))))
+  (let ((id (random (1- (ash 2 (1- (* 8 (binary-type-size (get-type 'u4)))))))))
     (values (encode-packet 'keep-alive id)
             id)))
 
@@ -90,90 +90,62 @@
   (send-data (apply #'encode-packet name data)
              connection))
 
-;;; ***************************************************************************************
-;;; Packets reader
-;;; ***************************************************************************************
+;;; **************************************************************************
+;;;  Packets reader
+;;; **************************************************************************
 
+;; Field readers
 
-(defun subseq-shift (vector start end shift)
-  (subseq vector
-          (+ start shift)
-          (+ end shift)))
+(defgeneric read-field (bindings data-stream type))
 
-(defgeneric read-field (bindings vector shift type count))
+(defmethod read-field (bindings data-stream (type Basic-type))
+  (decode-data type (read-bytes data-stream (binary-type-size type))))
 
-(defmethod read-field (bindings vector shift type (count integer))
-  (let* ((length (* (get-type-size type) count)))
-    (values (decode-data (subseq-shift vector 0 length shift)
-                         type
-                         (when (< 1 count)
-                           :array))
-            (+ shift length))))
+(defmethod read-field (bindings data-stream (type Composite-type))
+  (iter (for field in (composite-type-structure type))
+        (for field-length next (binary-type-size field))
+        (collecting (read-field bindings data-stream (get-type field)))))
 
-(defmethod read-field ((bindings list) (vector vector) (shift integer) type
-                       (count (eql nil)))
-  (declare (ignore count))
-  (read-field bindings vector shift type 1))
+(defmethod read-field (bindings data-stream (type String))
+  (let* ((prefix-var (getf (binary-type-modifiers type) :length))
+         (prefix (if prefix-var
+                   (assoc prefix-var bindings)
+                   (read-field bindings data-stream (get-type 'length-prefix)))))
+    (iter (repeat prefix)
+      (collecting (read-field bindings data-stream (get-type 'char))))))
 
-(defmethod read-field ((bindings list) (vector vector) (shift integer) type (count symbol))
-  (read-field bindings vector shift type (cdr (assoc count bindings))))
+;; High-level wrappers
 
-(defun read-array (bindings vector shift element-type)
-  (let ((prefix-size (get-type-size :length-prefix)))
-    (read-field bindings
-                vector
-                (+ shift prefix-size)
-                element-type
-                (decode-data (subseq-shift vector 0 prefix-size shift)
-                             :length-prefix
-                             nil))))
+(defun read-typedef (bindings data-stream type)
+  (let ((exclude-from-result? (getf (binary-type-modifiers type) :exclude)))
+    (values (read-field bindings data-stream type)
+            (when exclude-from-result?
+              t))))
 
-(defmethod read-field ((bindings list) (vector vector) (shift integer) (type (eql :string))
-                       (count (eql nil)))
-  (read-array bindings vector shift :character))
-
-(defmethod read-field ((bindings list) (vector vector) (shift integer)
-                       (type (eql :byte-array)) (count (eql nil)))
-  (read-array bindings vector shift :byte))
-
-(defun read-typedef (bindings vector shift type-definition)
-  (if (not (listp type-definition))
-    (read-field bindings vector shift type-definition nil)
-    (destructuring-bind (modifier type) type-definition
-      (if (not (listp modifier))
-        (if (eql modifier :exclude)
-          (apply #'values
-                 (append (multiple-value-list (read-field bindings vector shift type 1))
-                         '(t)))
-          (read-field bindings vector shift type 1))
-        (when (and (eql (first modifier) :repeat)
-                   (or (numberp (second modifier))
-                       (symbolp (second modifier))))
-          (read-field bindings vector shift type (second modifier)))))))
-
-(defun read-packet-from-vector (vector)
+(defun read-packet (vector)
   (let* ((packet-id (svref vector 0))
-         (packet (subseq vector 1))
-         (packet-structure (packet-definition-structure (get-packet-name packet-id))))
-    (iter
-      (with bindings)
-      (for (field name) in packet-structure)
-      (for shift first 0 then new-shift)
-      (for (data new-shift exclude-from-result?) next
-           (multiple-value-list (read-typedef bindings packet shift field)))
-      (push (cons name data) bindings)
-      (unless exclude-from-result?
-        (collect data into result))
-      (finally (return (values (cons packet-id result)
-                               bindings))))))
+         (packet-data (subseq vector 1))
+         (packet-structure (packet-definition-structure
+                             (get-packet-name packet-id))))
+    (with-input-from-sequence (data-stream packet-data)
+      (iter
+        (with bindings)
+        (for (field name) in packet-structure)
+        (for (data exclude-from-result?)
+             next (multiple-value-list (read-typedef bindings data-stream field)))
+        (push (cons name data) bindings)
+        (unless exclude-from-result?
+          (collect data into result))
+        (finally (return (values (cons packet-id result)
+                                 bindings)))))))
 
-;;; ***************************************************************************************
-;;; Packets processing
-;;; ***************************************************************************************
+;;; **************************************************************************
+;;;  Packets processing
+;;; **************************************************************************
 
 (defun process-packet (connection vector)
   (destructuring-bind (packet-id . packet-data)
-      (read-packet-from-vector vector)
+      (read-packet vector)
     (let ((packet-processor (get-packet-name packet-id)))
       (if packet-processor
         (when (fboundp packet-processor)
