@@ -10,9 +10,9 @@
 ;;;
 ;;; Anyway, don't take it seriously.
 
-;;; ***************************************************************************************
-;;; General stuff
-;;; ***************************************************************************************
+;;; **************************************************************************
+;;;  General stuff
+;;; **************************************************************************
 
 (defvar *binary-types* (make-hash-table))
 
@@ -20,7 +20,17 @@
   ((name :initarg :name
          :accessor binary-type-name)
    (size :initarg :size
-         :accessor binary-type-size)))
+         :accessor binary-type-size)
+   (modifiers :initarg :modifiers
+              :accessor binary-type-modifiers)))
+
+(defun has-modifier-p (type modifier)
+  (iter (for mod in (binary-type-modifiers type))
+    (when (eql (if (listp mod)
+                 (first mod)
+                 mod)
+               modifier)
+      (return mod))))
 
 (defun get-type (name)
   (gethash name *binary-types*))
@@ -29,18 +39,19 @@
   (check-type new-value Binary-type)
   (setf (gethash name *binary-types*) new-value))
 
-(defmacro define-binary-type (type name size)
+(defmacro define-binary-type (type name size &body arguments)
   `(setf (get-type ',name)
          (make-instance ',type
                         :name ',name
-                        :size ,size)))
+                        :size ,size
+                        ,@arguments)))
 
 (defgeneric decode-data (typespec data))
 (defgeneric encode-data (typespec data))
 
-;;; ***************************************************************************************
-;;; Basic types
-;;; ***************************************************************************************
+;;; **************************************************************************
+;;;  Basic types
+;;; **************************************************************************
 
 (defclass Basic-type (Binary-type) ())
 
@@ -62,6 +73,10 @@
 (defmacro define-character (name size)
   `(define-binary-type Character ,name ,size))
 
+(defmacro define-string (name size)
+  `(define-binary-type Character ,name ,size
+     :modifiers (list :length :prefix)))
+
 (defmacro define-boolean (name size)
   `(define-binary-type Boolean ,name ,size))
 
@@ -81,6 +96,7 @@
 (define-unsigned-integer length-prefix 2)
 
 (define-character char 2)
+(define-string string 2)
 
 (define-boolean bool 1)
 
@@ -127,8 +143,8 @@
 
 (defmethod decode-data ((typespec Float) (data vector))
   (switch ((binary-type-size typespec) :test #'=)
-    (4 (decode-float32 (get-type 'u4) (compose-bytes data)))
-    (8 (decode-float64 (get-type 'u8) (compose-bytes data)))))
+    (4 (decode-float32 (compose-bytes data)))
+    (8 (decode-float64 (compose-bytes data)))))
 
 ;;; Strings
 
@@ -213,9 +229,9 @@
     (encode-data value (second typespec))
     (encode-data value typespec)))
 
-;;; ***************************************************************************************
-;;; Composite types
-;;; ***************************************************************************************
+;;; **************************************************************************
+;;;  Composite types
+;;; **************************************************************************
 
 ;;; -------------
 ;;; Basic stuff

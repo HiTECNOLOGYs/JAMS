@@ -25,14 +25,15 @@
   (values))
 
 (defun run-tasks-queue ()
-  (let ((channel (make-channel)))
+  (let ((channel (lparallel:make-channel)))
     (lparallel.queue:with-locked-queue *tasks-queue*
-      (let ((*task-category* 'connections)
+      (let ((lparallel:*task-category* 'connections)
             (task-count (lparallel.queue:queue-count/no-lock *tasks-queue*)))
         (iter (repeat task-count)
-          (apply #'submit-task channel (lparallel.queue:pop-queue/no-lock *tasks-queue*)))
+          (apply #'lparallel:submit-task
+                 channel (lparallel.queue:pop-queue/no-lock *tasks-queue*)))
         (iter (repeat task-count)
-          (collecting (receive-result channel)))))))
+          (collecting (lparallel:receive-result channel)))))))
 
 
 ;;; Threads managemement

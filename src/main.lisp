@@ -1,7 +1,7 @@
 (in-package :jams)
 
 (defun start-server (port)
-  (setf *kernel* (make-kernel +max-number-of-threads+))
+  (setf lparallel:*kernel* (lparallel:make-kernel +max-number-of-threads+))
 
   ;; Starting main thread that processes all game events
   (start-thread 'main-thread )
