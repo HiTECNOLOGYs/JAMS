@@ -4,11 +4,12 @@
 ;;; written from scratch. No, I can't just use binary types because it
 ;;; lacks some important features that would require a lot more work
 ;;; to implement so I decided to write types coder by myself. And no,
-;;; this is *not* reinvention of the bicycle. This specific code
+;;; this is *not* reinvention of the wheel. This specific code
 ;;; suites my task (almost) perfectly and it is also some kind of
 ;;; exercise for me.
 ;;;
-;;; Anyway, don't take it seriously.
+;;; Anyway, don't take it seriously and *don't* use it elsewhere as it
+;;; may be slow, buggy and inefficient.
 
 ;;; **************************************************************************
 ;;;  General stuff
@@ -24,19 +25,31 @@
    (modifiers :initarg :modifiers
               :accessor binary-type-modifiers)))
 
+(defclass Binary-Array ()
+  ((prefix-type :initarg :prefix-type
+                :accessor binary-array-prefix-type)
+   (element-type :initarg :element-type
+                 :accessor binary-array-element-type)))
+
+(defun modifier= (mod-1 mod-2)
+  (eql (if (listp mod-1)
+         (first mod-1)
+         mod-1)
+       mod-2))
+
+(defun binary-type-modifier (type modifier)
+  (find-if (curry #'modifier= modifier)
+           (binary-type-modifiers type)))
+
 (defun has-modifier-p (type modifier)
-  (iter (for mod in (binary-type-modifiers type))
-    (when (eql (if (listp mod)
-                 (first mod)
-                 mod)
-               modifier)
-      (return mod))))
+  (when (binary-type-modifier type modifier)
+    t))
 
 (defun get-type (name)
   (gethash name *binary-types*))
 
 (defun (setf get-type) (new-value name)
-  (check-type new-value Binary-type)
+  (check-type new-value (or Binary-type Binary-array))
   (setf (gethash name *binary-types*) new-value))
 
 (defmacro define-binary-type (type name size &body arguments)
@@ -46,8 +59,16 @@
                         :size ,size
                         ,@arguments)))
 
-(defgeneric decode-data (typespec data))
-(defgeneric encode-data (typespec data))
+(defmacro define-binary-array (name prefix-type element-type &body arguments)
+  `(setf (get-type ',name)
+         (make-instance 'Binary-Array
+                        :prefix-type ',prefix-type
+                        :element-type ',element-type
+                        ,@arguments)))
+
+(defgeneric decode-binary-type (type data))
+(defgeneric encode-binary-type (type data))
+(defgeneric read-binary-type (type stream))
 
 ;;; **************************************************************************
 ;;;  Basic types
@@ -61,11 +82,18 @@
 (defclass Character (Basic-type) ())
 (defclass Boolean (Basic-type) ())
 
+(defclass VarInt (Signed-integer) ())
+
 (defmacro define-signed-integer (name size)
   `(define-binary-type Signed-integer ,name ,size))
 
 (defmacro define-unsigned-integer (name size)
   `(define-binary-type Unsigned-integer ,name ,size))
+
+(defmacro define-varint (name)
+  `(define-binary-type VarInt ,name 4) ; VarInts have variable size so type size but
+                                       ; the size stored here is maximum VarInt size.
+  )
 
 (defmacro define-float (name size)
   `(define-binary-type Float ,name ,size))
@@ -73,12 +101,13 @@
 (defmacro define-character (name size)
   `(define-binary-type Character ,name ,size))
 
-(defmacro define-string (name size)
-  `(define-binary-type Character ,name ,size
-     :modifiers (list :length :prefix)))
+(defmacro define-string (name prefix-type)
+  `(define-binary-array ,name ,prefix-type char))
 
 (defmacro define-boolean (name size)
   `(define-binary-type Boolean ,name ,size))
+
+(define-varint VarInt)
 
 (define-signed-integer s1 1)
 (define-signed-integer s2 2)
@@ -89,77 +118,76 @@
 (define-unsigned-integer u2 2)
 (define-unsigned-integer u4 4)
 (define-unsigned-integer u8 8)
+(define-unsigned-integer u16 16)
 
 (define-float f4 4)
 (define-float f8 8)
 
-(define-unsigned-integer length-prefix 2)
-
-(define-character char 2)
-(define-string string 2)
+(define-character char 1)
+(define-string string VarInt)
 
 (define-boolean bool 1)
 
 ;;; ---------
 ;;; Decoding
 
-(defun bytes-to-fixnum (vector length)
+(defun bytes-to-fixnum (vector length &optional (octet-size 8))
   (let ((unsigned 0))
     (iter
       (for byte from 0 below length)
       (after-each
-       (setf (ldb (byte 8 (* byte 8))
+       (setf (ldb (byte octet-size (* byte octet-size))
                   unsigned)
              (svref vector (- length byte 1)))))
     (logior unsigned
-            (- (mask-field (byte 1 (1- (* length 8)))
+            (- (mask-field (byte 1 (1- (* length octet-size)))
                            unsigned)))))
 
-(defun compose-bytes (bytes)
+(defun compose-bytes (bytes &optional (octet-size 8))
   (iter
     (for position from (1- (length bytes)) downto 0)
     (for byte next (elt bytes position))
-    (for shift first 0 then (+ 8 shift))
+    (for shift first 0 then (+ octet-size shift))
     (for result first byte
          then (logior (ash byte shift) result))
     (finally (return result))))
 
-(defmethod decode-data ((typespec symbol) data)
-  (decode-data (get-type typespec) data))
+(defmethod decode-binary-type ((type symbol) data)
+  (decode-binary-type (get-type type) data))
 
 ;;; Integers
 
 ;; Signed
 
-(defmethod decode-data ((typespec Signed-integer) (data vector))
-  (bytes-to-fixnum data (binary-type-size typespec)))
+(defmethod decode-binary-type ((type Signed-integer) (data vector))
+  (bytes-to-fixnum data (binary-type-size type)))
+
+(defmethod decode-binary-type ((type VarInt) (data vector))
+  (bytes-to-fixnum data (binary-type-size type) 7))
 
 ;; Unsigned
 
-(defmethod decode-data ((typespec Unsigned-integer) (data vector))
+(defmethod decode-binary-type ((type Unsigned-integer) (data vector))
   (compose-bytes data))
 
 ;;; Floats
 
-(defmethod decode-data ((typespec Float) (data vector))
-  (switch ((binary-type-size typespec) :test #'=)
+(defmethod decode-binary-type ((type Float) (data vector))
+  (switch ((binary-type-size type) :test #'=)
     (4 (decode-float32 (compose-bytes data)))
     (8 (decode-float64 (compose-bytes data)))))
 
 ;;; Strings
 
-(defmethod decode-data ((typespec Character) (data vector))
-  (code-char (logior (ash (elt data 0) 8)
-                     (elt data 1))))
+(defmethod decode-binary-type ((type Character) (data vector))
+  (code-char (svref data 0)))
 
-(defmethod decode-data ((typespec String) (data vector))
-  (octets-to-string data
-                    :external-format (make-external-format :utf-16
-                                                           :little-endian nil)))
+(defmethod decode-binary-type ((type String) (data vector))
+  (octets-to-string data :external-format :utf-8))
 
 ;;; Boolean
 
-(defmethod decode-data ((typespec Boolean) (data vector))
+(defmethod decode-binary-type ((type Boolean) (data vector))
   (switch ((svref data 0) :test #'=)
     (0 nil)
     (1 t)))
@@ -183,51 +211,51 @@
       (vector-push-extend (ldb (byte 8 (* shift 8)) number)
                           result))))
 
-(defmethod encode-data ((typespec symbol) data)
-  (encode-data (get-type typespec) data))
+(defmethod encode-binary-type ((type symbol) data)
+  (encode-binary-type (get-type type) data))
 
 ;;; Raw
 
-(defmethod encode-data (typespec data)
-  (encode-data (write-to-string data) typespec))
+(defmethod encode-binary-type (type data)
+  (encode-binary-type (write-to-string data) type))
 
 ;;; Integers
 
 ;; Signed
 
-(defmethod encode-data ((typespec Signed-integer) (data number))
-  (encode-number data (binary-type-size typespec)))
+(defmethod encode-binary-type ((type Signed-integer) (data number))
+  (encode-number data (binary-type-size type)))
 
 ;; Unsigned
 
-(defmethod encode-data ((typespec Unsigned-integer) (data number))
-  (encode-number data (binary-type-size typespec)))
+(defmethod encode-binary-type ((type Unsigned-integer) (data number))
+  (encode-number data (binary-type-size type)))
 
 ;;; Floats
 
-(defmethod encode-data ((typespec Float) (data float))
-  (switch ((binary-type-size typespec) :test #'=)
-    (4 (encode-data (encode-float32 data)))
-    (8 (encode-data (encode-float64 data)))))
+(defmethod encode-binary-type ((type Float) (data float))
+  (switch ((binary-type-size type) :test #'=)
+    (4 (encode-binary-type (encode-float32 data)))
+    (8 (encode-binary-type (encode-float64 data)))))
 
 ;;; Strings
 
-(defmethod encode-data ((typespec String) (data string))
+(defmethod encode-binary-type ((type String) (data string))
   (string-to-octets data
                     :external-format (make-external-format :utf-16
                                                            :little-endian nil)))
 
 ;;; Booleans
 
-(defmethod encode-data ((typespec Boolean) (data symbol))
+(defmethod encode-binary-type ((type Boolean) (data symbol))
   (cond
     ((eql data nil) #(0))
     ((eql data t)   #(1))))
 
-(defun encode-value (value typespec)
-  (if (listp typespec)
-    (encode-data value (second typespec))
-    (encode-data value typespec)))
+(defun encode-value (value type)
+  (if (listp type)
+    (encode-binary-type value (second type))
+    (encode-binary-type value type)))
 
 ;;; **************************************************************************
 ;;;  Composite types
@@ -255,27 +283,27 @@
           fields
           :key (compose #'binary-type-size #'get-type #'first)))
 
-(defmethod encode-data :around ((typespec Composite-type) (data list))
-  (let ((structure (composite-type-structure typespec)))
+(defmethod encode-binary-type :around ((type Composite-type) (data list))
+  (let ((structure (composite-type-structure type)))
     (if (not (= (length structure) (length data)))
       (error 'Invalid-structure
              :required-structure structure
              :given-data data)
       (call-next-method))))
 
-(defmethod encode-data ((typespec Composite-type) (data list))
+(defmethod encode-binary-type ((type Composite-type) (data list))
   (apply #'concatenate 'vector
          (mapcar #'(lambda (field-type elt)
-                     (encode-data field-type elt))
-                 (composite-type-structure typespec)
+                     (encode-binary-type field-type elt))
+                 (composite-type-structure type)
                  data)))
 
-(defmethod decode-data ((typespec Composite-type) (data vector))
+(defmethod decode-binary-type ((type Composite-type) (data vector))
   (with-input-from-sequence (data-stream data)
     (iter
-      (for field-type in (composite-type-structure typespec))
+      (for field-type in (composite-type-structure type))
       (for field-type-size next (binary-type-size (get-type field-type)))
-      (collecting (decode-data field-type (read-bytes data-stream field-type-size))))))
+      (collecting (decode-binary-type field-type (read-bytes data-stream field-type-size))))))
 
 ;;; ------
 ;;; Types
@@ -285,3 +313,47 @@
   (s4 chunk-z)
   (u2 primary-bit-map)
   (u2 add-bit-map))
+
+;;; **************************************************************************
+;;;  Reading types from streams
+;;; **************************************************************************
+
+(defmethod read-binary-type ((type symbol) stream)
+  (read-binary-type (get-type type) stream))
+
+;; Basic types
+
+(defmethod read-binary-type ((type Basic-type) stream)
+  (decode-binary-type type
+                      (read-bytes stream
+                                  (binary-type-size type))))
+
+(defmethod read-binary-type ((type VarInt) stream)
+  (let* ((size (binary-type-size type))
+         (buffer (make-array size :initial-element 0)))
+    (decode-binary-type
+      type
+      (dotimes (i size buffer)
+        (let ((byte (read-byte stream nil 0)))
+          (format t "Buffer: ~A~%Byte: ~A~%"
+                  buffer
+                  (write-to-string byte :base 2))
+          (if (not (zerop (logand (ash 1 8) byte)))
+            (return buffer)
+            (setf (svref buffer (- (1- size) i))
+                  (logand #b01111111 ; Mask for dropping most significant bit
+                          byte))))))))
+
+(defmethod read-binary-type ((type Binary-array) stream)
+  (let* ((length (read-binary-type stream (binary-array-prefix-type type))))
+    (iter
+      (repeat length)
+      (collecting (read-binary-type stream (binary-array-element-type type))))))
+
+;; Composite types
+
+(defmethod read-binary-type ((type Composite-type) stream)
+  (iter
+    (for field in (composite-type-structure type))
+    (for field-length next (binary-type-size field))
+    (collecting (read-binary-type stream (get-type field)))))
