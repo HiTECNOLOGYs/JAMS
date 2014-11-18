@@ -91,8 +91,8 @@
   `(define-binary-type Unsigned-integer ,name ,size))
 
 (defmacro define-varint (name)
-  `(define-binary-type VarInt ,name 4) ; VarInts have variable size so type size but
-                                       ; the size stored here is maximum VarInt size.
+  `(define-binary-type VarInt ,name 4) ; VarInts have variable size so type value
+                                       ; stored here represents maximum VarInt size.
   )
 
 (defmacro define-float (name size)
@@ -335,9 +335,6 @@
       type
       (dotimes (i size buffer)
         (let ((byte (read-byte stream nil 0)))
-          (format t "Buffer: ~A~%Byte: ~A~%"
-                  buffer
-                  (write-to-string byte :base 2))
           (if (not (zerop (logand (ash 1 8) byte)))
             (return buffer)
             (setf (svref buffer (- (1- size) i))
