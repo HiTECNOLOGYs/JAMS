@@ -13,9 +13,10 @@ Dependencies
 * **salza2** - data compression
 * **cl-store** - serialization
 * **alexandria** - lots of handy stuff
+* **anaphora** - some more useful stuff
 * **trivial-garbage** - portability layer for GC
 * **iterate** - loops and stuff
-
+* **closer-mop** - MOP
 
 What exactly can it do?
 ------------------------

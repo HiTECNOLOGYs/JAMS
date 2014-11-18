@@ -24,6 +24,9 @@
            :reader connection-socket)
    (status :initform :opening
            :accessor connection-status)
+   (stage :initform :handshaking
+          :type (member :handshaking :login :status :play)
+          :accessor connection-stage)
    (client :accessor connection-client)
    (keep-alive-received? :initform nil
                          :accessor connection-keep-alive-received-p)

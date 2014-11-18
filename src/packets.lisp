@@ -1,40 +1,128 @@
 (in-package :jams)
 
 ;;; **************************************************************************
-;;;  Packets defintion
+;;;  Basics
 ;;; **************************************************************************
 
-(defparameter *packets* (make-hash-table))
+;; ----------------
+;; ID -> Class name
 
-(define-condition Invalid-packet (error)
-  ((message :initarg :message)
-   (data :initarg :data
-         :initform nil)
-   (connection :initarg :connection)))
-
-(defmacro defpacket ((name id) structure &body body)
-  "Structure format (type name-for-binding)."
-  `(progn
-     ,(when body
-        `(defun ,name ,(cons 'connection (iter (for (typespec id) in structure)
-                                           (unless (and (listp typespec)
-                                                        (eql (first typespec)
-                                                             :exclude))
-                                             (collecting id))))
-           (declare (ignorable connection))
-           ,@body))
-     (setf (gethash ,id *packets*) ',name
-           (get ',name :structure) ',structure
-           (get ',name :id)         ,id)))
+(defparameter *packets* (make-hash-table)
+  "Stores (ID -> Class name) table.")
 
 (defun get-packet-name (id)
   (gethash id *packets*))
 
-(defun packet-definition-id (name)
-  (get name :id))
+(defun (setf get-packet-name) (new-value id)
+  (setf (gethash id *packets*) new-value))
 
-(defun packet-definition-structure (name)
-  (get name :structure))
+;; ----------------
+;; MOP
+
+(defclass Packet (standard-class)
+  ((id :initarg :id
+       :reader packet-id)
+   (name :initarg :name
+         :reader packet-name)
+   (stage :initarg :stage
+          :reader packet-stage)
+   (size :initarg :size
+         :initform nil
+         :documentation "Some packets have fixed size. In order to reduce amount of work, this size can be provided here. Otherwise, if NIL is stored in this slot, size is computated dynamically (when reading packet). DEFPACKET macro defines if packet size is static automatically, so not extra care is needed."
+         :reader packet-size)
+   ;; Isn't necessary but can be useful for debugging and statistics.
+   (description :initarg :description
+                :reader packet-description)
+   (category :initarg :category
+             :reader packet-category)
+   (bound-to :initarg :bound-to
+             :reader packet-bound-to)))
+
+(defmethod validate-superclass ((class Packet) (superclass standard-class))
+  t)
+
+(defmethod shared-initialize :after ((class Packet) slot-names
+                                     &key id stage description category bound-to)
+  (setf (slot-value class 'id)          (first id)
+        (slot-value class 'name)        (class-name class)
+        (slot-value class 'stage)       (first stage)
+        (slot-value class 'description) (first description)
+        (slot-value class 'category)    (first category)
+        (slot-value class 'bound-to)    (first bound-to)))
+
+(defclass packet-field (standard-direct-slot-definition)
+  ((type :initarg :type
+         :reader packet-field-type)
+   (id :initarg :id
+       :reader packet-field-id)
+   ;; Not necessary but, again, useful for debugging and not forgetting what the hell is that.
+   (documentation :initarg :documentation
+                  :reader packet-field-documentation)))
+
+(defmethod shared-initialize :after ((slot packet-field) slot-names
+                              &key type id documentation &allow-other-keys)
+  (setf (slot-value slot 'type)          type
+        (slot-value slot 'id)            id
+        (slot-value slot 'documentation) documentation))
+
+(defmethod direct-slot-definition-class ((class Packet) &key type id &allow-other-keys)
+  "Slots that have both :ID and :TYPE attributes are considered to be packet fields
+(or slots, whichever you like better; I'll stick to slots for the sake of simplicity,
+except for cases when slot means class's slot, then I'll use field)."
+  (if (and type id)
+    (find-class 'packet-field)
+    (call-next-method)))
+
+(defparameter *direct-packet-slot* nil
+  "Bound to direct slot when slot is packet field.")
+
+(defclass effective-packet-slot (standard-effective-slot-definition)
+  ((direct-slot :initform *direct-packet-slot* :reader packet-slot-direct-slot)))
+
+(defmethod compute-effective-slot-definition ((class Packet) name direct-slot-definitions)
+  (flet
+    ((field-p (slot)
+       (typep slot 'packet-field)))
+    (let ((*direct-packet-slot* (find-if #'field-p direct-slot-definitions)))
+      (when (and *direct-packet-slot*
+                 (not (every #'field-p direct-slot-definitions)))
+        (error "Slot ~S (that belongs to class ~S) can't possibly be packet field and class slot at the same time." name class))
+      (call-next-method))))
+
+(defmethod effective-slot-definition-class ((class Packet) &rest initargs)
+  (declare (ignore initargs))
+  (if *direct-packet-slot*
+    (find-class 'effective-packet-slot)
+    (call-next-method)))
+
+(defun make-packet (class &rest fields)
+  (let ((instance (make-instance class)))
+    (loop for slot in (class-direct-slots (find-class class))
+          for field in fields
+          doing (setf (slot-value instance (slot-definition-name slot)) field))
+    instance))
+
+;; ----------------
+;; Macros
+
+(defmacro defpacket ((id name stage) &body body)
+  "Structure is a list of (type name)."
+  (let (metaclass-args fields)
+    (loop for (expr . rest) on body
+          while (and (listp expr) (keywordp (first expr)))
+          doing (push expr metaclass-args)
+          finally (setf fields rest))
+    (unless metaclass-args
+      (setf fields body))
+    `(progn
+       (setf (get-packet-name ,id) ',name)
+       (defclass ,name ()
+         (,@fields)
+         (:metaclass Packet)
+         (:id ,id)
+         (:stage ,stage)
+         ,@metaclass-args)
+       ',name)))
 
 ;;; **************************************************************************
 ;;;  Packing data and building packets

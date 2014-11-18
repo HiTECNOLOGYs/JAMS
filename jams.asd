@@ -12,7 +12,8 @@
                :alexandria
                :anaphora
                :trivial-garbage
-               :iterate)
+               :iterate
+               :closer-mop)
   :pathname "src/"
   :serial t
   :components ((:file "packages")

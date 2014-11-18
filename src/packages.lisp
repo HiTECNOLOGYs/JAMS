@@ -1,5 +1,5 @@
 (defpackage :jams
-  (:use :cl
+  (:use :closer-common-lisp
         :flexi-streams
         :ieee-floats
         :cl-store
