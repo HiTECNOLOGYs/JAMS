@@ -9,5 +9,6 @@
         :iterate)
   (:shadow :float
            :character
-           :boolean)
+           :boolean
+           :position)
   (:export :main))

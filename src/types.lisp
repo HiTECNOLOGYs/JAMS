@@ -81,8 +81,9 @@
 (defclass Float (Basic-type) ())
 (defclass Character (Basic-type) ())
 (defclass Boolean (Basic-type) ())
-
-(defclass VarInt (Signed-integer) ())
+(defclass Var-Num (Signed-integer) ())
+(defclass Position (Unsigned-integer) ())
+(defclass UUID (Unsigned-integer) ())
 
 (defmacro define-signed-integer (name size)
   `(define-binary-type Signed-integer ,name ,size))
@@ -90,9 +91,9 @@
 (defmacro define-unsigned-integer (name size)
   `(define-binary-type Unsigned-integer ,name ,size))
 
-(defmacro define-varint (name)
-  `(define-binary-type VarInt ,name 4) ; VarInts have variable size so type value
-                                       ; stored here represents maximum VarInt size.
+(defmacro define-var-num (name max-size)
+  `(define-binary-type Var-Num ,name ,max-size) ; VarNums have variable size so type value
+                                                ; stored here represents maximal VarNum size.
   )
 
 (defmacro define-float (name size)
@@ -107,7 +108,14 @@
 (defmacro define-boolean (name size)
   `(define-binary-type Boolean ,name ,size))
 
-(define-varint VarInt)
+(defmacro define-uuid (name size)
+  `(define-binary-type UUID ,name ,size))
+
+(defmacro define-position (name size)
+  `(define-binary-type Position ,name ,size))
+
+(define-var-num Var-Int 4)
+(define-var-num Var-Long 8)
 
 (define-signed-integer s1 1)
 (define-signed-integer s2 2)
@@ -124,9 +132,13 @@
 (define-float f8 8)
 
 (define-character char 1)
-(define-string string VarInt)
+(define-string string Var-Int)
 
 (define-boolean bool 1)
+
+(define-uuid UUID 16)
+
+(define-position Position 8)
 
 ;;; ---------
 ;;; Decoding
@@ -145,8 +157,8 @@
 
 (defun compose-bytes (bytes &optional (octet-size 8))
   (iter
-    (for position from (1- (length bytes)) downto 0)
-    (for byte next (elt bytes position))
+    (for i from (1- (length bytes)) downto 0)
+    (for byte next (elt bytes i))
     (for shift first 0 then (+ octet-size shift))
     (for result first byte
          then (logior (ash byte shift) result))
@@ -162,7 +174,7 @@
 (defmethod decode-binary-type ((type Signed-integer) (data vector))
   (bytes-to-fixnum data (binary-type-size type)))
 
-(defmethod decode-binary-type ((type VarInt) (data vector))
+(defmethod decode-binary-type ((type Var-Num) (data vector))
   (bytes-to-fixnum data (binary-type-size type) 7))
 
 ;; Unsigned
@@ -191,6 +203,20 @@
   (switch ((svref data 0) :test #'=)
     (0 nil)
     (1 t)))
+
+;;; UUID
+
+(defmethod decode-binary-type ((type UUID) (data vector))
+  (compose-bytes data))
+
+;;; Position
+
+(defmethod decode-binary-type ((type Position) (data vector))
+  (let ((value (compose-bytes data)))
+    (list (ash value -38) ; X
+          (logand (ash value -26) #xFFF) ; Y
+          (ash (ash value 38) -38) ; Z
+          )))
 
 ;;; --------
 ;;; Encoding
@@ -226,6 +252,24 @@
 (defmethod encode-binary-type ((type Signed-integer) (data number))
   (encode-number data (binary-type-size type)))
 
+(defmethod encode-binary-type ((type Var-Num) (data number))
+  (let* ((num-length (truncate (integer-length data) 8)) ; In bytes
+         (result (make-array (1+ num-length)
+                             :initial-element 0
+                             :fill-pointer 0
+                             :element-type '(unsigned-byte 8))))
+    (iter
+      (for i from 0 to num-length)
+      (finally (return result))
+      (after-each
+        (print i)
+        (vector-push (logior (logand (ldb (byte 7 (* i 7)) data)
+                                     #b01111111)
+                             (if (< i num-length)
+                               #b10000000
+                               #b00000000))
+                     result)))))
+
 ;; Unsigned
 
 (defmethod encode-binary-type ((type Unsigned-integer) (data number))
@@ -241,9 +285,11 @@
 ;;; Strings
 
 (defmethod encode-binary-type ((type String) (data string))
-  (string-to-octets data
-                    :external-format (make-external-format :utf-16
-                                                           :little-endian nil)))
+  (let ((octets (string-to-octets data :external-format :utf-8)))
+    (concatenate 'vector
+                 (encode-binary-type (binary-array-prefix-type type)
+                                     (length octets))
+                 octets)))
 
 ;;; Booleans
 
@@ -251,6 +297,20 @@
   (cond
     ((eql data nil) #(0))
     ((eql data t)   #(1))))
+
+;;; UUID
+
+(defmethod encode-binary-type ((type UUID) (data number))
+  (encode-number data (binary-type-size type)))
+
+;;; Position
+
+(defmethod encode-binary-type ((type Position) (data list))
+  (destructuring-bind (x y z) data
+    (encode-number (logior (ash (logiand x #x3FFFFFF) 38)
+                           (ash (logiand y #xFFF) 26)
+                           (logiand z #x3FFFFFF))
+                   (binary-type-size type))))
 
 (defun encode-value (value type)
   (if (listp type)
@@ -328,7 +388,7 @@
                       (read-bytes stream
                                   (binary-type-size type))))
 
-(defmethod read-binary-type ((type VarInt) stream)
+(defmethod read-binary-type ((type Var-Num) stream)
   (let* ((size (binary-type-size type))
          (buffer (make-array size :initial-element 0)))
     (decode-binary-type
