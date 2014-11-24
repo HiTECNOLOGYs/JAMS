@@ -8,12 +8,12 @@
 ;; ID -> Class name
 
 (defparameter *packets* (make-hash-table)
-  "Stores (ID -> Class name) table.")
+  "Stores (ID -> Class) table.")
 
-(defun get-packet-name (id)
+(defun get-packet-class (id)
   (gethash id *packets*))
 
-(defun (setf get-packet-name) (new-value id)
+(defun (setf get-packet-class) (new-value id)
   (setf (gethash id *packets*) new-value))
 
 ;; ----------------
@@ -96,11 +96,20 @@ except for cases when slot means class's slot, then I'll use field)."
     (call-next-method)))
 
 (defun make-packet (class &rest fields)
-  (let ((instance (make-instance class)))
-    (loop for slot in (class-direct-slots (find-class class))
-          for field in fields
-          doing (setf (slot-value instance (slot-definition-name slot)) field))
-    instance))
+  (let ((instance (make-instance class))
+        (data (copy-list fields)))
+    (dolist (slot (class-slots (find-class class)) instance)
+      (when (typep slot 'effective-packet-slot)
+        (setf (slot-value instance (slot-definition-name slot)) (pop data))))))
+
+(defun packet-structure (class)
+  (iter (for slot in (class-direct-slots (get-packet-class id)))
+        (collecting (list (packet-field-id slot) (packet-field-type slot)))))
+
+;; ----------------
+;; Some mixins
+
+(defclass Encodable-packet () ())
 
 ;; ----------------
 ;; Macros
@@ -115,94 +124,42 @@ except for cases when slot means class's slot, then I'll use field)."
     (unless metaclass-args
       (setf fields body))
     `(progn
-       (setf (get-packet-name ,id) ',name)
-       (defclass ,name ()
+       (defclass ,name (Encodable-packet)
          (,@fields)
          (:metaclass Packet)
          (:id ,id)
          (:stage ,stage)
          ,@metaclass-args)
-       ',name)))
+       ',name
+       (setf (get-packet-name ,id) (find-class ,name)))))
 
 ;;; **************************************************************************
-;;;  Packing data and building packets
+;;;  Packets decoding
 ;;; **************************************************************************
 
-(defgeneric pack (object))
+(define-condition Invalid-packet (error)
+  ((message :initarg :message)
+   (data :initarg :data
+         :initform nil)
+   (connection :initarg :connection)))
 
-(defun encode-ping-response (protocol-version server-version motd player-count max-players)
-  (concatenate 'vector
-               (encode-value (+ 3 ; header (0xA7 0x31) + null byte
-                                4 ; separators (null bytes)
-                                (length protocol-version)
-                                (length server-version)
-                                (length motd)
-                                (length player-count)
-                                (length max-players))
-                             :short)
-               #(#x00 #xA7 #x00 #x31 #x00 #x00)
-               (encode-data protocol-version :raw)
-               #(#x00 #x00)
-               (encode-data server-version :raw)
-               #(#x00 #x00)
-               (encode-data motd :raw)
-               #(#x00 #x00)
-               (encode-data player-count :raw)
-               #(#x00 #x00)
-               (encode-data max-players :raw)))
+;;; **************************************************************************
+;;;  Packets encoding
+;;; **************************************************************************
 
-(defun encode-packet-data (name data)
-  (iter
-    (with result = #())
-    (for (field-type field-name) in (packet-definition-structure name))
-    (for field-data in data)
-    (setf result
-          (concatenate 'vector result (encode-value field-data field-type)))
-    (finally (return result))))
+(defun encode-packet (id &rest data)
+  (with-output-to-sequence (output-stream)
+    (let ((packet (apply #'make-packet (get-packet-class id) data)))
+      
+      )))
 
-(defun make-packet (name data)
-  (let ((packet-id (packet-definition-id name)))
-    (concatenate 'vector
-                 (vector packet-id)
-                 data)))
-
-(defun encode-packet (name &rest data)
-  (make-packet name (encode-packet-data name data)))
-
-(defun make-keep-alive-packet ()
-  (let ((id (random (1- (ash 2 (1- (* 8 (binary-type-size (get-type 'u4)))))))))
-    (values (encode-packet 'keep-alive id)
-            id)))
-
-(defun send-packet (name connection &rest data)
-  (send-data (apply #'encode-packet name data)
+(defun send-packet (connection id &rest data)
+  (send-data (apply #'encode-packet id data)
              connection))
 
 ;;; **************************************************************************
 ;;;  Packets reader
 ;;; **************************************************************************
-
-;; Field readers
-
-(defgeneric read-field (bindings data-stream type))
-
-(defmethod read-field (bindings data-stream (type Basic-type))
-  (decode-data type (read-bytes data-stream (binary-type-size type))))
-
-(defmethod read-field (bindings data-stream (type Composite-type))
-  (iter (for field in (composite-type-structure type))
-        (for field-length next (binary-type-size field))
-        (collecting (read-field bindings data-stream (get-type field)))))
-
-(defmethod read-field (bindings data-stream (type String))
-  (let* ((prefix-var (getf (binary-type-modifiers type) :length))
-         (prefix (if prefix-var
-                   (assoc prefix-var bindings)
-                   (read-field bindings data-stream (get-type 'length-prefix)))))
-    (iter (repeat prefix)
-      (collecting (read-field bindings data-stream (get-type 'char))))))
-
-;; High-level wrappers
 
 (defun read-typedef (bindings data-stream type)
   (let ((exclude-from-result? (getf (binary-type-modifiers type) :exclude)))
@@ -211,34 +168,59 @@ except for cases when slot means class's slot, then I'll use field)."
               t))))
 
 (defun read-packet (vector)
-  (let* ((packet-id (svref vector 0))
-         (packet-data (subseq vector 1))
-         (packet-structure (packet-definition-structure
-                             (get-packet-name packet-id))))
-    (with-input-from-sequence (data-stream packet-data)
+  (with-input-from-sequence (data-stream vector)
+    (let* ((packet-length (read-binary-type 'Var-Int data-stream))
+           (packet-id (read-binary-type 'Var-Int data-stream))
+           (packet-class (get-packet-class packet-id))
+           (packet-structure (packet-structure packet-class)))
+      (declare (ignore packet-length))
+      ;; Currently, we ignore packet length and read it according to structure.
+      ;; TODO Implement length verification
       (iter
         (with bindings)
-        (for (field name) in packet-structure)
+        (for (field-id field-type) in packet-structure)
         (for (data exclude-from-result?)
-             next (multiple-value-list (read-typedef bindings data-stream field)))
-        (push (cons name data) bindings)
+             next (multiple-value-list
+                    (read-typedef bindings data-stream field-type)))
+        (push (cons field-id data) bindings)
         (unless exclude-from-result?
           (collect data into result))
-        (finally (return (values (cons packet-id result)
+        (finally (return (values (apply #'make-packet packet-class result)
                                  bindings)))))))
 
 ;;; **************************************************************************
-;;;  Packets processing
+;;;  Packets handling
 ;;; **************************************************************************
 
+(defgeneric handle-packet (connection packet)
+  (:documentation "Does packet processing. The result of this function call is sent to client. If more than one packets are needed to be sent, list should be returned."))
+
+(defmacro define-packet-handler (name &body body)
+  "Defines new handler for packet with given name. Also defines some handy local-bound functions to interact with connection and client and binds packet fields to appropriate symbols for easy access."
+  `(defmethod handle-packet ((connection Connection) (packet ,name))
+     (flet
+       ((respond (id &rest data)
+          ;; Sends data to client
+          )
+        (set-status (id &rest data)
+          ;; Updates connection status
+          )
+        (drop ()
+          ;; Drops connection immediately, aborts handler
+          )
+        (client ()
+          ;; Returns instance of player who established this connection
+          ))
+       (with-slots ,(mapcar #'slot-definition-name
+                      (class-direct-slots (find-class name)))
+           packet
+         ,@body))))
+
+(defmethod handle-packet ((connection Connection) packet)
+  (error 'Invalid-packet
+         :message "Dunno what is this shit."
+         :connection connection
+         :data packet))
+
 (defun process-packet (connection vector)
-  (destructuring-bind (packet-id . packet-data)
-      (read-packet vector)
-    (let ((packet-processor (get-packet-name packet-id)))
-      (if packet-processor
-        (when (fboundp packet-processor)
-          (apply packet-processor connection packet-data))
-        (error 'Invalid-packet
-               :message "Dunno what is this shit."
-               :connection connection
-               :data packet-id)))))
+  (handle-packet connection (read-packet vector)))
