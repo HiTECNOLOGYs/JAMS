@@ -74,11 +74,10 @@
                  ((Thread-termination
                     #'(lambda (condition)
                         (declare (ignorable condition))
-                        #+jams-debug (log-message :info
-                                                  ,(format nil "Stopping thread \"~S\"."
-                                                           name))
+                        (log:debu2 ,(format nil "Stopping thread \"~S\"."
+                                            name))
                         ,cleanup)))
-               #+jams-debug (log-message :info ,(format nil "Starting thread \"~S\"." name))
+               (log:debu2 ,(format nil "Starting thread \"~S\"." name))
                ,@body))))
 
 (defun thread-running-p (name)

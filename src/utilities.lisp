@@ -7,17 +7,6 @@
      (for ,element next (row-major-aref ,array ,counter))
      (after-each ,@body)))
 
-(defun log-message (type message &rest arguments)
-  (format t
-          (case type
-            (:info     "[INFO]  ~?~%")
-            (:warning  "[WARN]  ~?~%")
-            (:error    "[ERR]   ~?~%")
-            (:critical "[!ERR!] ~?~%")
-            (otherwise (error "Unknown log message type: ~S" type)))
-          message
-          arguments))
-
 (defun read-bytes (stream count)
   (iter
     (for i from 0 below count)

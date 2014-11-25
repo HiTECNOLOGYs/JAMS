@@ -50,29 +50,27 @@
 
              (iolib:socket-connection-reset-error ()
                ;; Connection was reseted by client. Closing socket.
-               #+jams-debug (log-message :info "[~A:~5D] Connection reset. Closing socket."
-                                         host port)
+               (log:error "[~A:~5D] Connection reset. Closing socket."
+                          host port)
                (funcall disconnector :close))
 
              (end-of-file ()
                ;; Client sent EOF. Write all we have (if we have something)
                ;; and close socket.
-               #+jams-debug (log-message :info "[~A:~5D] End of file. Closing socket."
-                                         host port)
+               (log:error "[~A:~5D] End of file. Closing socket."
+                          host port)
                (terminate))
 
              (invalid-packet ()
-               #+jams-debug (log-message :warning "Received invalid packet from #~D."
-                                         (connection-id connection)))
+               (log:error "Received invalid packet from #~D."
+                          (connection-id connection)))
 
              (close-connection (condition)
                ;; Server initiated connection closing. Executing.
-               #+jams-debug
-               (with-slots (connection reason) condition
-                 (log-message :info "[~A:~5D] Closing connection #~D. (~A)"
-                              host port
-                              (connection-id connection)
-                              reason))
+               (log:info "[~A:~5D] Closing connection #~D. (~A)"
+                         host port
+                         (connection-id (slot-value condition 'connection))
+                         (slot-value condition 'reason))
                (terminate))))
 
          (write-bytes (fd event exception)
@@ -99,20 +97,20 @@
 
              (iolib:socket-connection-reset-error ()
                ;; Connection was reseted by client. Closing socket.
-               #+jams-debug (log-message :info "[~A:~5D] Connection reset. Closing socket."
-                                         host port)
+               (log:error "[~A:~5D] Connection reset. Closing socket."
+                          host port)
                (funcall disconnector :close))
 
              (isys:ewouldblock ()
                ;; Say 'Oops' and ignore this.
-               #+jams-debug (log-message :error "[~A:~5D] OOPS."
-                                         host port)
+               (log:error "[~A:~5D] OOPS."
+                          host port)
                nil)
 
              (isys:epipe ()
                ;; Client doesn't want to accept our data. Fuck you then, client.
-               #+jams-debug (log-message :warning "[~A:~5D] End of pipe."
-                                         host port)
+               (log:info "[~A:~5D] End of pipe."
+                         host port)
                (funcall disconnector :close)))))
 
       (lambda (message)
@@ -159,8 +157,8 @@
       (when client-socket
         (let ((address (iolib:remote-host client-socket))
               (port (iolib:remote-port client-socket)))
-          #+jams-debug (log-message :info "[~A:~5D] Connected."
-                                    address port)
+          (log:info "[~A:~5D] Connected."
+                    address port)
           (let* ((connection (open-connection address port client-socket #'process-packet))
                  (io-buffer (make-io-buffer connection (make-disconnectior connection))))
             (iolib:set-io-handler *event-base*
@@ -181,27 +179,27 @@
                      :address-family :internet
                      :type :stream
                      :ipv6 nil)
-    #+jams-debug (log-message :info "Created server socket ~A with FD=~D"
-                              server-socket (iolib:socket-os-fd server-socket))
+    (log:debug "Created server socket ~A with FD=~D"
+               server-socket (iolib:socket-os-fd server-socket))
 
     (iolib:bind-address server-socket iolib:+ipv4-unspecified+
                         :port port
                         :reuse-addr t)
-    #+jams-debug (log-message :info "Bound server socket: ~A"
-                              server-socket)
+    (log:debug "Bound server socket: ~A"
+               server-socket)
 
-    #+jams-debug (log-message :info "Starting listening on ~A:~D."
-                              (iolib:local-host server-socket)
-                              (iolib:local-port server-socket))
+    (log:debug "Starting listening on ~A:~D."
+               (iolib:local-host server-socket)
+               (iolib:local-port server-socket))
     (iolib:listen-on server-socket :backlog 5)
 
-    #+jams-debug (log-message :info "Setting read handler.")
+    (log:debug "Setting read handler.")
     (iolib:set-io-handler *event-base*
                           (iolib:socket-os-fd server-socket)
                           :read
                           (make-listener-handler server-socket))
 
-    #+jams-debug (log-message :info "Starting dispatching requests.")
+    (log:debug "Starting dispatching requests.")
     (handler-case
         (iolib:event-dispatch *event-base*)
 
@@ -236,13 +234,13 @@
            (progn (init-networking)
                   (start-listen port))
          (thread-termination ()
-           (log-message :info "Stopping network listener on port ~D."
+           (log:debu2 "Stopping network listener on port ~D."
                         port))
          (sb-sys:interactive-interrupt ()
-           (log-message :info "Caught ^C. Exiting."))
+           (log:debug "Caught ^C. Exiting."))
          ;; (simple-error (condition)
-         ;;   (log-message :error "Unknown error: ~A. Exiting." condition))
+         ;;   (log:error "Unknown error: ~A. Exiting." condition))
          )
     (cleanup-networking)
-    #+jams-debug (log-message :info "Stopped network listener on port ~D."
-                              port)))
+    (log:debu2 "Stopped network listener on port ~D."
+               port)))

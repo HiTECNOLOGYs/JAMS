@@ -506,8 +506,8 @@
           (on-ground-p player) on-ground?)))
 
 (defun handshake (connection protocol-id nick address port)
-  #+jams-debug (log-message :info "Player connected: ~A (protocol:~A) (~A:~D)"
-                            nick protocol-id address port)
+  (log:debu1 "Player connected: ~A (protocol:~A) (~A:~D)"
+             nick protocol-id address port)
   (when (<= *server-max-players* (get-players-count *world*))
     (send-packet 'kick
                  connection
@@ -542,6 +542,6 @@
     (send-packet 'kick connection packet)))
 
 (defun kick (connection message)
-  #+jams-debug (log-message :info "Client kicked us. Terminating connection #~D. (~A)"
-                            (connection-id connection) message)
+  (log:debu1 "Client kicked us. Terminating connection #~D. (~A)"
+             (connection-id connection) message)
   (terminate-connection connection message))

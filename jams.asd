@@ -13,7 +13,8 @@
                :anaphora
                :trivial-garbage
                :iterate
-               :closer-mop)
+               :closer-mop
+               :log4cl)
   :pathname "src/"
   :serial t
   :components ((:file "packages")
@@ -31,6 +32,3 @@
                (:file "game")
                (:file "networking")
                (:file "main")))
-
-
-(pushnew :jams-debug *features*)
