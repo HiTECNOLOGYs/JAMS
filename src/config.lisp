@@ -1,6 +1,6 @@
 (in-package :jams)
 
-(defparameter *server-version*            "1.8.2")
+(defparameter *server-version*            "1.8")
 (defparameter *server-supported-protocol* 47)
 (defparameter *server-description*        "BOO")
 (defparameter *server-max-players*        32)
