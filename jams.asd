@@ -10,8 +10,6 @@
                :salza2
                :cl-store
                :alexandria
-               :anaphora
-               :trivial-garbage
                :iterate
                :closer-mop
                :log4cl)

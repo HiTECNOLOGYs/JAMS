@@ -5,7 +5,6 @@
         :cl-store
         :bordeaux-threads
         :alexandria
-        :anaphora
         :iterate)
   (:shadow :float
            :character
