@@ -19,16 +19,17 @@
                (:file "config")
                (:file "utilities")
                (:module "foundation"
+                        :pathname "foundation/"
                         :serial t
-                        :depends-on ((:file "threading")
-                                     (:file "networking")
-                                     (:file "connections")
+                        :components ((:file "threading")
                                      (:file "types")
+                                     (:file "sockets")
                                      (:file "packets")
                                      (:file "protocol")))
                (:module "gameplay"
+                        :pathname "gameplay/"
                         :serial t
-                        :depends-on ((:file "objects")
+                        :components ((:file "objects")
                                      (:file "entities")
                                      (:file "map")
                                      (:file "actions")
