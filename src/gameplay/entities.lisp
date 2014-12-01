@@ -3,8 +3,8 @@
 (defvar *next-entity-id* 0)
 
 (defun gen-entity-id ()
-  (prog1 *next-connection-id*
-    (incf *next-connection-id*)))
+  (prog1 *next-entity-id*
+    (incf *next-entity-id*)))
 
 (defclass Entity ()
   ((id :initform (gen-entity-id)
