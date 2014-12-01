@@ -24,29 +24,13 @@
   ((name :initarg :name
          :accessor binary-type-name)
    (size :initarg :size
-         :accessor binary-type-size)
-   (modifiers :initarg :modifiers
-              :accessor binary-type-modifiers)))
+         :accessor binary-type-size)))
 
 (defclass Binary-Array ()
   ((prefix-type :initarg :prefix-type
                 :accessor binary-array-prefix-type)
    (element-type :initarg :element-type
                  :accessor binary-array-element-type)))
-
-(defun modifier= (mod-1 mod-2)
-  (eql (if (listp mod-1)
-         (first mod-1)
-         mod-1)
-       mod-2))
-
-(defun binary-type-modifier (type modifier)
-  (find-if (curry #'modifier= modifier)
-           (binary-type-modifiers type)))
-
-(defun has-modifier-p (type modifier)
-  (when (binary-type-modifier type modifier)
-    t))
 
 (defun get-type (name)
   (gethash name *binary-types*))
