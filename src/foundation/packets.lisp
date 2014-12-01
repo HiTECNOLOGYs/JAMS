@@ -69,6 +69,7 @@
   "Slots that have both :ID and :TYPE attributes are considered to be packet fields
 (or slots, whichever you like better; I'll stick to slots for the sake of simplicity,
 except for cases when slot means class's slot, then I'll use field)."
+  (declare (ignore class))
   (if (and type id)
     (find-class 'packet-field)
     (call-next-method)))
@@ -90,7 +91,7 @@ except for cases when slot means class's slot, then I'll use field)."
       (call-next-method))))
 
 (defmethod effective-slot-definition-class ((class Packet) &rest initargs)
-  (declare (ignore initargs))
+  (declare (ignore class initargs))
   (if *direct-packet-slot*
     (find-class 'effective-packet-slot)
     (call-next-method)))
@@ -103,7 +104,7 @@ except for cases when slot means class's slot, then I'll use field)."
         (setf (slot-value instance (slot-definition-name slot)) (pop data))))))
 
 (defun packet-structure (class)
-  (iter (for slot in (class-direct-slots (get-packet-class id)))
+  (iter (for slot in (class-direct-slots class))
         (collecting (list (packet-field-id slot) (packet-field-type slot)))))
 
 ;; ----------------
@@ -149,9 +150,12 @@ except for cases when slot means class's slot, then I'll use field)."
 
 (defun encode-packet (id &rest data)
   (with-output-to-sequence (output-stream)
-    (let ((packet (apply #'make-packet (get-packet-class id) data)))
-      
-      )))
+    (when-let (class (get-packet-class id))
+      (with-output-to-sequence (stream)
+        (iter
+          (for field in (class-direct-slots class))
+          (for value in data)
+          (write-binary-type (packet-field-type field) value output-stream))))))
 
 (defun send-packet (connection id &rest data)
   (send-data (apply #'encode-packet id data)
@@ -161,32 +165,14 @@ except for cases when slot means class's slot, then I'll use field)."
 ;;;  Packets reader
 ;;; **************************************************************************
 
-(defun read-typedef (bindings data-stream type)
-  (let ((exclude-from-result? (getf (binary-type-modifiers type) :exclude)))
-    (values (read-field bindings data-stream type)
-            (when exclude-from-result?
-              t))))
-
 (defun read-packet (vector)
   (with-input-from-sequence (data-stream vector)
-    (let* ((packet-length (read-binary-type 'Var-Int data-stream))
-           (packet-id (read-binary-type 'Var-Int data-stream))
-           (packet-class (get-packet-class packet-id))
+    (let* ((packet-class (get-packet-class (read-binary-type 'Var-Int data-stream)))
            (packet-structure (packet-structure packet-class)))
-      (declare (ignore packet-length))
-      ;; Currently, we ignore packet length and read it according to structure.
-      ;; TODO Implement length verification
-      (iter
-        (with bindings)
-        (for (field-id field-type) in packet-structure)
-        (for (data exclude-from-result?)
-             next (multiple-value-list
-                    (read-typedef bindings data-stream field-type)))
-        (push (cons field-id data) bindings)
-        (unless exclude-from-result?
-          (collect data into result))
-        (finally (return (values (apply #'make-packet packet-class result)
-                                 bindings)))))))
+      (apply #'make-packet packet-class
+             (mapcar #'(lambda (field)
+                         (read-binary-type (packet-field-type field) data-stream))
+                     packet-structure)))))
 
 ;;; **************************************************************************
 ;;;  Packets handling
