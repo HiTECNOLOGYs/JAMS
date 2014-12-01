@@ -7,14 +7,14 @@
 ;; ----------------
 ;; ID -> Class name
 
-(defparameter *packets* (make-hash-table)
-  "Stores (ID -> Class) table.")
+(defparameter *packets* (make-hash-table :test 'equal)
+  "Stores (ID + stage -> Class) table.")
 
-(defun get-packet-class (id)
-  (gethash id *packets*))
+(defun get-packet-class (id stage)
+  (gethash (cons id stage) *packets*))
 
-(defun (setf get-packet-class) (new-value id)
-  (setf (gethash id *packets*) new-value))
+(defun (setf get-packet-class) (new-value id stage)
+  (setf (gethash (cons id stage) *packets*) new-value))
 
 ;; ----------------
 ;; MOP
@@ -131,7 +131,7 @@ except for cases when slot means class's slot, then I'll use field)."
          (:id ,id)
          (:stage ,stage)
          ,@metaclass-args)
-       (setf (get-packet-class ,id) (find-class ',name))
+       (setf (get-packet-class ,id ,stage) (find-class ',name))
        ',name)))
 
 ;;; **************************************************************************
