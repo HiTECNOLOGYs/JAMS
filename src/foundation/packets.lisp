@@ -99,7 +99,7 @@ except for cases when slot means class's slot, then I'll use field)."
 (defun make-packet (class &rest fields)
   (let ((instance (make-instance class))
         (data (copy-list fields)))
-    (dolist (slot (class-slots (find-class class)) instance)
+    (dolist (slot (class-slots class) instance)
       (when (typep slot 'effective-packet-slot)
         (setf (slot-value instance (slot-definition-name slot)) (pop data))))))
 
@@ -121,7 +121,7 @@ except for cases when slot means class's slot, then I'll use field)."
     (loop for (expr . rest) on body
           while (and (listp expr) (keywordp (first expr)))
           doing (push expr metaclass-args)
-          finally (setf fields rest))
+          finally (setf fields (cons expr rest)))
     (unless metaclass-args
       (setf fields body))
     `(progn
@@ -131,8 +131,8 @@ except for cases when slot means class's slot, then I'll use field)."
          (:id ,id)
          (:stage ,stage)
          ,@metaclass-args)
-       ',name
-       (setf (get-packet-name ,id) (find-class ,name)))))
+       (setf (get-packet-class ,id) (find-class ',name))
+       ',name)))
 
 ;;; **************************************************************************
 ;;;  Packets decoding
