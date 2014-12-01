@@ -17,10 +17,6 @@
   `(iter (for (,remote-address-var ,connection-var) in-hashtable *connections*)
      (after-each ,@body)))
 
-(defun keep-alive-everybody ()
-  (doclients (remote-address connection)
-    (keep-alive-client connection)))
-
 (defun increment-time ()
   (setf (world-age *world*)         (1+ (world-age *world*))
         (world-time-of-day *world*) (mod (1+ (world-time-of-day *world*))
