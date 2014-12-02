@@ -108,11 +108,6 @@ except for cases when slot means class's slot, then I'll use field)."
         (collecting (list (packet-field-id slot) (packet-field-type slot)))))
 
 ;; ----------------
-;; Some mixins
-
-(defclass Encodable-packet () ())
-
-;; ----------------
 ;; Macros
 
 (defmacro defpacket ((id name stage bound-to) &body body)
@@ -127,7 +122,7 @@ except for cases when slot means class's slot, then I'll use field)."
     (unless metaclass-args
       (setf fields body))
     `(progn
-       (defclass ,name (Encodable-packet)
+       (defclass ,name ()
          (,@fields)
          (:metaclass Packet)
          (:id ,id)
