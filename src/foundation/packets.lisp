@@ -146,18 +146,15 @@ except for cases when slot means class's slot, then I'll use field)."
 ;;;  Packets encoding
 ;;; **************************************************************************
 
-(defun encode-packet (id &rest data)
-  (with-output-to-sequence (output-stream)
-    (when-let (class (get-packet-class id))
-      (with-output-to-sequence (stream)
-        (iter
-          (for field in (class-direct-slots class))
-          (for value in data)
-          (write-binary-type (packet-field-type field) value output-stream))))))
+(defun encode-packet (packet)
+  (with-output-to-sequence (stream)
+    (dolist (field (class-direct-slots (class-of packet)))
+      (write-binary-type (packet-field-type field)
+                         (slot-value packet (slot-definition-name field))
+                         stream))))
 
-(defun send-packet (connection id &rest data)
-  (send-data (apply #'encode-packet id data)
-             connection))
+(defun send-packet (connection packet)
+  (send-data (encode-packet packet) connection))
 
 ;;; **************************************************************************
 ;;;  Packets reader
