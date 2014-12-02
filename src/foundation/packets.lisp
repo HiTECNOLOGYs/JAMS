@@ -8,13 +8,13 @@
 ;; ID -> Class name
 
 (defparameter *packets* (make-hash-table :test 'equal)
-  "Stores (ID + stage -> Class) table.")
+  "Stores (ID + stage + bound-to -> Class) table.")
 
-(defun get-packet-class (id stage)
-  (gethash (cons id stage) *packets*))
+(defun get-packet-class (id stage bound-to)
+  (gethash (list id stage bound-to) *packets*))
 
-(defun (setf get-packet-class) (new-value id stage)
-  (setf (gethash (cons id stage) *packets*) new-value))
+(defun (setf get-packet-class) (new-value id stage bound-to)
+  (setf (gethash (list id stage bound-to) *packets*) new-value))
 
 ;; ----------------
 ;; MOP
@@ -26,6 +26,8 @@
          :reader packet-name)
    (stage :initarg :stage
           :reader packet-stage)
+   (bound-to :initarg :bound-to
+             :reader packet-bound-to)
    (size :initarg :size
          :initform nil
          :documentation "Some packets have fixed size. In order to reduce amount of work, this size can be provided here. Otherwise, if NIL is stored in this slot, size is computated dynamically (when reading packet). DEFPACKET macro defines if packet size is static automatically, so not extra care is needed."
@@ -34,9 +36,7 @@
    (description :initarg :description
                 :reader packet-description)
    (category :initarg :category
-             :reader packet-category)
-   (bound-to :initarg :bound-to
-             :reader packet-bound-to)))
+             :reader packet-category)))
 
 (defmethod validate-superclass ((class Packet) (superclass standard-class))
   t)
@@ -115,13 +115,15 @@ except for cases when slot means class's slot, then I'll use field)."
 ;; ----------------
 ;; Macros
 
-(defmacro defpacket ((id name stage) &body body)
+(defmacro defpacket ((id name stage bound-to) &body body)
   "Structure is a list of (type name)."
   (let (metaclass-args fields)
     (loop for (expr . rest) on body
           while (and (listp expr) (keywordp (first expr)))
           doing (push expr metaclass-args)
-          finally (setf fields (cons expr rest)))
+          finally (setf fields (if (and (listp expr) (keywordp (first expr)))
+                                 rest
+                                 (cons expr rest))))
     (unless metaclass-args
       (setf fields body))
     `(progn
@@ -130,8 +132,9 @@ except for cases when slot means class's slot, then I'll use field)."
          (:metaclass Packet)
          (:id ,id)
          (:stage ,stage)
+         (:bound-to ,bound-to)
          ,@metaclass-args)
-       (setf (get-packet-class ,id ,stage) (find-class ',name))
+       (setf (get-packet-class ,id ,stage ,bound-to) (find-class ',name))
        ',name)))
 
 ;;; **************************************************************************
