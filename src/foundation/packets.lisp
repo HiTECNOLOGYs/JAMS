@@ -105,7 +105,7 @@ except for cases when slot means class's slot, then I'll use field)."
 
 (defun packet-structure (class)
   (iter (for slot in (class-direct-slots class))
-        (collecting (list (packet-field-id slot) (packet-field-type slot)))))
+        (collecting (packet-field-type slot))))
 
 ;; ----------------
 ;; Macros
@@ -147,11 +147,13 @@ except for cases when slot means class's slot, then I'll use field)."
 ;;; **************************************************************************
 
 (defun encode-packet (packet)
-  (with-output-to-sequence (stream)
-    (dolist (field (class-direct-slots (class-of packet)))
-      (write-binary-type (packet-field-type field)
-                         (slot-value packet (slot-definition-name field))
-                         stream))))
+  (let ((class (class-of packet)))
+    (with-output-to-sequence (stream)
+      (write-binary-type 'Var-Int (packet-id class) stream)
+      (dolist (field (class-direct-slots class))
+        (write-binary-type (packet-field-type field)
+                           (slot-value packet (slot-definition-name field))
+                           stream)))))
 
 (defun send-packet (connection packet)
   (send-data (encode-packet packet) connection))
@@ -160,13 +162,15 @@ except for cases when slot means class's slot, then I'll use field)."
 ;;;  Packets reader
 ;;; **************************************************************************
 
-(defun read-packet (vector)
-  (with-input-from-sequence (data-stream vector)
-    (let* ((packet-class (get-packet-class (read-binary-type 'Var-Int data-stream)))
+(defun parse-packet (stage data)
+  (with-input-from-sequence (data-stream data)
+    (let* ((packet-class (get-packet-class (read-binary-type 'Var-Int data-stream)
+                                           stage
+                                           :server))
            (packet-structure (packet-structure packet-class)))
       (apply #'make-packet packet-class
              (mapcar #'(lambda (field)
-                         (read-binary-type (packet-field-type field) data-stream))
+                         (read-binary-type field data-stream))
                      packet-structure)))))
 
 ;;; **************************************************************************
@@ -203,5 +207,5 @@ except for cases when slot means class's slot, then I'll use field)."
          :connection connection
          :data packet))
 
-(defun process-packet (connection vector)
-  (handle-packet connection (read-packet vector)))
+(defun process-packet (connection data)
+  (handle-packet connection (parse-packet (connection-stage connection) data)))
