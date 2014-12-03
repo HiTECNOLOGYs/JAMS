@@ -46,9 +46,9 @@
                         :size ,size
                         ,@arguments)))
 
-(defmacro define-binary-array (name prefix-type element-type &body arguments)
+(defmacro define-binary-array (type name prefix-type element-type &body arguments)
   `(setf (get-type ',name)
-         (make-instance 'Binary-Array
+         (make-instance ',type
                         :prefix-type ',prefix-type
                         :element-type ',element-type
                         ,@arguments)))
@@ -60,6 +60,7 @@
 ;; Reading/Writng
 
 (defgeneric write-binary-type (type data stream)
+  #+nil
   (:method (type data stream)
    ;; Can't encode — encode as string!
    (write-binary-type type (write-to-string data) stream))
@@ -77,11 +78,11 @@
 (defun bytes-to-fixnum (vector length &optional (octet-size 8))
   (let ((unsigned 0))
     (iter
-      (for byte from 0 below length)
+      (for i from 0 below length)
       (after-each
-       (setf (ldb (byte octet-size (* byte octet-size))
-                  unsigned)
-             (svref vector (- length byte 1)))))
+        (setf (ldb (byte octet-size (* i octet-size))
+                   unsigned)
+              (aref vector i))))
     (logior unsigned
             (- (mask-field (byte 1 (1- (* length octet-size)))
                            unsigned)))))
@@ -89,7 +90,7 @@
 (defun compose-bytes (bytes &optional (octet-size 8))
   (iter
     (for i from (1- (length bytes)) downto 0)
-    (for byte next (elt bytes i))
+    (for byte next (aref bytes i))
     (for shift first 0 then (+ octet-size shift))
     (for result first byte
          then (logior (ash byte shift) result))
@@ -133,6 +134,14 @@
     (iter
       (repeat length)
       (collecting (read-binary-type (binary-array-element-type type) stream)))))
+
+(defmethod write-binary-type ((type Basic-type) data stream)
+  (write-bytes (if (vectorp data) data (vector data)) stream))
+
+(defmethod write-binary-type ((type Binary-array) data stream)
+  (let ((prepared-data (if (vectorp data) data (vector data))))
+    (write-binary-type (binary-array-prefix-type type) (length prepared-data) stream)
+    (write-bytes prepared-data stream)))
 
 ;;; **************************************************************************
 ;;;  Composite types
@@ -196,7 +205,7 @@
   (compose-bytes (call-next-method)))
 
 (defmethod write-binary-type ((type Unsigned-integer) (data number) stream)
-  (write-bytes (encode-number data (binary-type-size type)) stream))
+  (call-next-method type (encode-number data (binary-type-size type)) stream))
 
 ;;; **************************************************************************
 ;;;  Signed integer
@@ -216,7 +225,7 @@
   (bytes-to-fixnum (call-next-method) (binary-type-size type)))
 
 (defmethod write-binary-type ((type Signed-integer) (data number) stream)
-  (write-bytes (encode-number data (binary-type-size type)) stream))
+  (call-next-method type (encode-number data (binary-type-size type)) stream))
 
 ;;; **************************************************************************
 ;;;  VarNums
@@ -234,17 +243,18 @@
 
 (defmethod read-binary-type ((type Var-Num) stream)
   (with-slots (size) type
-    (iter
-      (with buffer = (make-array size
-                                 :initial-element 0
-                                 :fill-pointer 0
-                                 :element-type '(unsigned-byte 8)))
-      (for i in size)
-      (for byte next (read-byte stream nil 0))
-      (until (zerop (mask-field (byte 1 7) byte)))
-      (finally (return (bytes-to-fixnum buffer size 7)))
-      (after-each
-        (vector-push (mask-field (byte 7 0) byte) buffer)))))
+    (let ((buffer (make-array size
+                              :initial-element 0
+                              :fill-pointer 0
+                              :element-type '(unsigned-byte 8))))
+      (dotimes (i size buffer)
+        (let ((byte (read-byte stream nil 0)))
+          (vector-push (ldb (byte 7 0) byte) buffer)
+          (when (zerop (ldb (byte 1 7) byte))
+            (setf (fill-pointer buffer) size)
+            (return (if (emptyp buffer)
+                      buffer
+                      (bytes-to-fixnum buffer size 7)))))))))
 
 (defmethod write-binary-type ((type Var-Num) (data number) stream)
   (iter
@@ -252,7 +262,7 @@
     (for i from 0 to number-length by 7)
     (after-each
       (write-byte (logior (ldb (byte 7 i) data)
-                          (if (< i number-length)
+                          (if (< (+ i 7) number-length)
                             (ash 1 7)
                             (ash 0 7)))
                   stream))))
@@ -263,21 +273,21 @@
 
 (defclass Float (Basic-type) ())
 
-(define-float f4 4)
-(define-float f8 8)
-
 (defmacro define-float (name size)
   `(define-binary-type Float ,name ,size))
+
+(define-float f4 4)
+(define-float f8 8)
 
 (defmethod read-binary-type ((type Float) stream)
   (switch ((binary-type-size type) :test #'=)
     (4 (decode-float32 (call-next-method)))
     (8 (decode-float64 (call-next-method)))))
 
-(defmethod write-binary-type ((type Float) (data float) stream)
+(defmethod write-binary-type ((type Float) (data cl:float) stream)
   (switch ((binary-type-size type) :test #'=)
-    (4 (write-binary-type (encode-float32 data) stream))
-    (8 (write-binary-type (encode-float64 data) stream))))
+    (4 (call-next-method type (encode-float32 data) stream))
+    (8 (call-next-method type (encode-float64 data) stream))))
 
 ;;; **************************************************************************
 ;;;  Characters
@@ -293,22 +303,25 @@
 (defmethod read-binary-type ((type Character) stream)
   (code-char (call-next-method)))
 
+(defmethod write-binary-type ((type Character) (data cl:character) stream)
+  (call-next-method type (char-code data) stream))
+
 ;;; **************************************************************************
 ;;;  Strings
 ;;; **************************************************************************
 
-(define-string string Var-Int)
+(defclass String (Binary-array) ())
 
 (defmacro define-string (name prefix-type)
-  `(define-binary-array ,name ,prefix-type char))
+  `(define-binary-array String ,name ,prefix-type Character))
+
+(define-string string Var-Int)
 
 (defmethod read-binary-type ((type String) stream)
   (octets-to-string (call-next-method) :external-format :utf-8))
 
-(defmethod write-binary-type ((type String) (data string) stream)
-  (let ((octets (string-to-octets data :external-format :utf-8)))
-    (write-binary-type (binary-array-prefix-type type) (length octets) stream)
-    (write-bytes octets stream)))
+(defmethod write-binary-type ((type String) (data cl:string) stream)
+  (call-next-method type (string-to-octets data :external-format :utf-8) stream))
 
 ;;; **************************************************************************
 ;;;  Booleans
@@ -326,8 +339,9 @@
     (0 nil)
     (1 t)))
 
-(defmethod write-binary-type ((type Boolean) (data boolean) stream)
-  (write-byte (if data 1 0) stream))
+(defmethod write-binary-type ((type Boolean) (data symbol) stream)
+  (check-type data cl:boolean)
+  (call-next-method type (if data 1 0) stream))
 
 ;;; **************************************************************************
 ;;;  Position
@@ -349,12 +363,12 @@
 
 (defmethod write-binary-type ((type Position) (data list) stream)
   (destructuring-bind (x y z) data
-    (write-bytes
-      (encode-number (logior (ash (logand x #x3FFFFFF) 38)
-                             (ash (logand y #xFFF) 26)
-                             (logand z #x3FFFFFF))
-                     (binary-type-size type))
-      stream)))
+    (call-next-method type
+                      (encode-number (logior (ash (logand x #x3FFFFFF) 38)
+                                             (ash (logand y #xFFF) 26)
+                                             (logand z #x3FFFFFF))
+                                     (binary-type-size type))
+                      stream)))
 
 ;;; **************************************************************************
 ;;;  UUID
@@ -371,7 +385,7 @@
   (compose-bytes (call-next-method)))
 
 (defmethod write-binary-type ((type UUID) (data number) stream)
-  (write-bytes (encode-number data (binary-type-size type)) stream))
+  (call-next-method type (encode-number data (binary-type-size type)) stream))
 
 ;;; **************************************************************************
 ;;;  Chunk bulk metadata

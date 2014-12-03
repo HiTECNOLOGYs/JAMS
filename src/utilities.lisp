@@ -13,7 +13,8 @@
                                :initial-element 0
                                :fill-pointer 0
                                :element-type '(unsigned-byte 8)))
-    (setf (aref result i) (read-byte stream))
+    (after-each
+      (vector-push (read-byte stream) result))
     (finally (return result))))
 
 (defun write-bytes (vector stream)

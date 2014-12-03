@@ -8,6 +8,7 @@
         :iterate)
   (:shadow :float
            :character
+           :string
            :boolean
            :position)
   (:export :main))
