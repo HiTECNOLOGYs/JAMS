@@ -93,16 +93,8 @@ except for cases when slot means class's slot, then I'll use field)."
 (defun make-empty-packet (class)
   (make-instance class))
 
-(defun fill-packet (instance data)
-  (iter
-    (for slot in (class-direct-slots (class-of instance)))
-    (for value in data)
-    (finally (return instance))
-    (after-each
-      (setf (slot-value instance (slot-definition-name slot)) value))))
-
-(defun make-packet (class &rest data)
-  (fill-packet (make-empty-packet class) data))
+(defun make-packet (class &rest initargs)
+  (apply #'make-instance class initargs))
 
 (defmacro dopacket ((field-variable packet) &body body)
   `(dolist (,field-variable (class-direct-slots (class-of ,packet)) ,packet)
