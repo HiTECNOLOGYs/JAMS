@@ -6,7 +6,7 @@
 #+FILETAGS: :jams:projects:work:
 
 * TODO 0.1 First working release
-*** TODO Migrate to 1.7.6 protcol (5)
+*** TODO Migrate to 1.8.1 protcol (47)
 *** TODO Packets [11/80]
 ***** DONE Keep Alive (0x00)
 ***** DONE Login Request (0x01)
