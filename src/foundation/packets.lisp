@@ -90,16 +90,23 @@ except for cases when slot means class's slot, then I'll use field)."
     (find-class 'effective-packet-slot)
     (call-next-method)))
 
-(defun make-packet (class &rest fields)
-  (let ((instance (make-instance class))
-        (data (copy-list fields)))
-    (dolist (slot (class-slots class) instance)
-      (when (typep slot 'effective-packet-slot)
-        (setf (slot-value instance (slot-definition-name slot)) (pop data))))))
+(defun make-empty-packet (class)
+  (make-instance class))
 
-(defun packet-structure (class)
-  (iter (for slot in (class-direct-slots class))
-        (collecting (packet-field-type slot))))
+(defun fill-packet (instance data)
+  (iter
+    (for slot in (class-direct-slots (class-of instance)))
+    (for value in data)
+    (finally (return instance))
+    (after-each
+      (setf (slot-value instance (slot-definition-name slot)) value))))
+
+(defun make-packet (class &rest data)
+  (fill-packet (make-empty-packet class) data))
+
+(defmacro dopacket ((field-variable packet) &body body)
+  `(dolist (,field-variable (class-direct-slots (class-of ,packet)) ,packet)
+     ,@body))
 
 ;; ----------------
 ;; Macros
@@ -165,15 +172,17 @@ except for cases when slot means class's slot, then I'll use field)."
 ;;;  Packets reader
 ;;; **************************************************************************
 
+(defgeneric read-packet (class stream)
+  (:method (packet stream)
+   (dopacket (slot packet)
+     (let ((value (read-binary-type (packet-field-type slot) stream)))
+       (setf (slot-value packet (slot-definition-name slot)) value)))))
+
 (defun parse-packet (stage data)
   (with-input-from-sequence (data-stream data)
-    (let* ((packet-class (get-packet-class (read-binary-type 'Var-Int data-stream)
-                                           stage))
-           (packet-structure (packet-structure packet-class)))
-      (apply #'make-packet packet-class
-             (mapcar #'(lambda (field)
-                         (read-binary-type field data-stream))
-                     packet-structure)))))
+    (let* ((id (read-binary-type 'Var-Int data-stream))
+           (packet (make-empty-packet (get-packet-class id stage))))
+      (read-packet packet data-stream))))
 
 ;;; **************************************************************************
 ;;;  Packets handling
