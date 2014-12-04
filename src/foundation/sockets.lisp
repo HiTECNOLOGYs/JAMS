@@ -32,8 +32,7 @@
           :accessor connection-stage)
    (keep-alive-received? :initform nil
                          :accessor connection-keep-alive-received-p)
-   (last-keep-alive-id :initform 0
-                       :accessor connection-last-keep-alive-id)
+   (last-keep-alive-id :accessor connection-last-keep-alive-id)
    (last-keep-alive-time :initform (get-universal-time)
                          :accessor connection-last-keep-alive-time)))
 
@@ -58,6 +57,15 @@
 
 ;; ----------------
 ;; Dispatch
+
+(defgeneric keep-alive (connection &optional received-id)
+  (:method ((connection Connection) &optional received-id)
+   ;; This default method can only check if keep alive was right.
+   (unless received-id
+     (when (and (slot-boundp connection 'last-keep-alive-id)
+                (= (connection-last-keep-alive-id connection) received-id))
+       (setf (connection-last-keep-alive-time connection)  (get-universal-time)
+             (connection-keep-alive-received-p connection) t)))))
 
 (defgeneric dispatch-connection-data (connection data)
   (:method-combination list))
