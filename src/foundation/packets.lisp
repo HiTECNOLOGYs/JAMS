@@ -53,24 +53,21 @@
 (defclass packet-field (standard-direct-slot-definition)
   ((type :initarg :type
          :reader packet-field-type)
-   (id :initarg :id
-       :reader packet-field-id)
    ;; Not necessary but, again, useful for debugging and not forgetting what the hell is that.
    (documentation :initarg :documentation
                   :reader packet-field-documentation)))
 
 (defmethod shared-initialize :after ((slot packet-field) slot-names
-                              &key type id documentation &allow-other-keys)
+                              &key type documentation &allow-other-keys)
   (setf (slot-value slot 'type)          type
-        (slot-value slot 'id)            id
         (slot-value slot 'documentation) documentation))
 
-(defmethod direct-slot-definition-class ((class Packet) &key type id &allow-other-keys)
+(defmethod direct-slot-definition-class ((class Packet) &key type &allow-other-keys)
   "Slots that have both :ID and :TYPE attributes are considered to be packet fields
 (or slots, whichever you like better; I'll stick to slots for the sake of simplicity,
 except for cases when slot means class's slot, then I'll use field)."
   (declare (ignore class))
-  (if (and type id)
+  (if type
     (find-class 'packet-field)
     (call-next-method)))
 
