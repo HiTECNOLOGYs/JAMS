@@ -281,13 +281,13 @@
 
 (defmethod read-binary-type ((type Float) stream)
   (switch ((binary-type-size type) :test #'=)
-    (4 (decode-float32 (call-next-method)))
-    (8 (decode-float64 (call-next-method)))))
+    (4 (decode-float32 (compose-bytes (call-next-method))))
+    (8 (decode-float64 (compose-bytes (call-next-method))))))
 
 (defmethod write-binary-type ((type Float) (data cl:float) stream)
   (switch ((binary-type-size type) :test #'=)
-    (4 (call-next-method type (encode-float32 data) stream))
-    (8 (call-next-method type (encode-float64 data) stream))))
+    (4 (write-binary-type 'u4 (encode-float32 data) stream))
+    (8 (write-binary-type 'u8 (encode-float64 data) stream))))
 
 ;;; **************************************************************************
 ;;;  Characters
