@@ -8,13 +8,13 @@
 ;; ID -> Class name
 
 (defparameter *packets* (make-hash-table :test 'equal)
-  "Stores (ID + stage + bound-to -> Class) table.")
+  "Stores (ID + stage -> Class) table.")
 
-(defun get-packet-class (id stage bound-to)
-  (gethash (list id stage bound-to) *packets*))
+(defun get-packet-class (id stage)
+  (gethash (list id stage) *packets*))
 
-(defun (setf get-packet-class) (new-value id stage bound-to)
-  (setf (gethash (list id stage bound-to) *packets*) new-value))
+(defun (setf get-packet-class) (new-value id stage)
+  (setf (gethash (list id stage) *packets*) new-value))
 
 ;; ----------------
 ;; MOP
@@ -26,8 +26,6 @@
          :reader packet-name)
    (stage :initarg :stage
           :reader packet-stage)
-   (bound-to :initarg :bound-to
-             :reader packet-bound-to)
    (size :initarg :size
          :initform nil
          :documentation "Some packets have fixed size. In order to reduce amount of work, this size can be provided here. Otherwise, if NIL is stored in this slot, size is computated dynamically (when reading packet). DEFPACKET macro defines if packet size is static automatically, so not extra care is needed."
@@ -42,13 +40,12 @@
   t)
 
 (defmethod shared-initialize :after ((class Packet) slot-names
-                                     &key id stage description category bound-to)
+                                     &key id stage description category)
   (setf (slot-value class 'id)          (first id)
         (slot-value class 'name)        (class-name class)
         (slot-value class 'stage)       (first stage)
         (slot-value class 'description) (first description)
-        (slot-value class 'category)    (first category)
-        (slot-value class 'bound-to)    (first bound-to)))
+        (slot-value class 'category)    (first category)))
 
 (defclass packet-field (standard-direct-slot-definition)
   ((type :initarg :type
@@ -107,9 +104,17 @@ except for cases when slot means class's slot, then I'll use field)."
 ;; ----------------
 ;; Macros
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun find-packet-package (bound-to)
+    (case bound-to
+      (:client (find-package :jams.packets.client))
+      (:server (find-package :jams.packets.server))
+      (otherwise (error "Don't know how to bind something to: ~S" bound-to)))))
+
 (defmacro defpacket ((id name stage bound-to) &body body)
   "Structure is a list of (type name)."
-  (let (metaclass-args fields)
+  (let (metaclass-args fields
+        (package (find-packet-package bound-to)))
     (loop for (expr . rest) on body
           while (and (listp expr) (keywordp (first expr)))
           doing (push expr metaclass-args)
@@ -119,15 +124,16 @@ except for cases when slot means class's slot, then I'll use field)."
     (unless metaclass-args
       (setf fields body))
     `(progn
-       (defclass ,name ()
+       (defclass ,#1=(intern (symbol-name name) package) ()
          (,@fields)
          (:metaclass Packet)
          (:id ,id)
          (:stage ,stage)
-         (:bound-to ,bound-to)
          ,@metaclass-args)
-       (setf (get-packet-class ,id ,stage ,bound-to) (find-class ',name))
-       ',name)))
+       (export ',#1# ,package)
+       ,(when (eql bound-to :server)
+          `(setf (get-packet-class ,id ,stage) (find-class ',#1#)))
+       ',#1#)))
 
 ;;; **************************************************************************
 ;;;  Packets decoding
@@ -162,8 +168,7 @@ except for cases when slot means class's slot, then I'll use field)."
 (defun parse-packet (stage data)
   (with-input-from-sequence (data-stream data)
     (let* ((packet-class (get-packet-class (read-binary-type 'Var-Int data-stream)
-                                           stage
-                                           :server))
+                                           stage))
            (packet-structure (packet-structure packet-class)))
       (apply #'make-packet packet-class
              (mapcar #'(lambda (field)

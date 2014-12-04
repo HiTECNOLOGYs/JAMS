@@ -12,3 +12,11 @@
            :boolean
            :position)
   (:export :main))
+
+;; Send to client
+(defpackage :jams.packets.client
+  (:use))
+
+;; Handled by server
+(defpackage :jams.packets.server
+  (:use))
