@@ -356,13 +356,14 @@
 
 (defmethod read-binary-type ((type Position) stream)
   (let ((value (compose-bytes (call-next-method))))
-    (list (ash value -38) ; X
-          (logand (ash value -26) #xFFF) ; Y
-          (ash (ash value 38) -38) ; Z
-          )))
+    (list :x (ash value -38)
+          :y (logand (ash value -26) #xFFF)
+          :z (ash (ash value 38) -38))))
 
 (defmethod write-binary-type ((type Position) (data list) stream)
-  (destructuring-bind (x y z) data
+  (let ((x (getf data :x 0))
+        (y (getf data :y 0))
+        (z (getf data :z 0)))
     (call-next-method type
                       (encode-number (logior (ash (logand x #x3FFFFFF) 38)
                                              (ash (logand y #xFFF) 26)
