@@ -122,7 +122,7 @@ except for cases when slot means class's slot, then I'll use field)."
                                  (cons expr rest))))
     (unless metaclass-args
       (setf fields body))
-    `(progn
+    `(eval-when (:compile-toplevel :load-toplevel :execute)
        (defclass ,#1=(intern (symbol-name name) package) ()
          (,@fields)
          (:metaclass Packet)
@@ -160,6 +160,9 @@ except for cases when slot means class's slot, then I'll use field)."
 (defun send-packet (connection packet)
   (send-data (encode-packet packet) connection))
 
+(defun respond (connection packet-id &rest data)
+  (send-packet connection (apply #'make-packet (find-package packet-id) data)))
+
 ;;; **************************************************************************
 ;;;  Packets reader
 ;;; **************************************************************************
@@ -185,23 +188,22 @@ except for cases when slot means class's slot, then I'll use field)."
 
 (defmacro define-packet-handler (name &body body)
   "Defines new handler for packet with given name. Also defines some handy local-bound functions to interact with connection and client and binds packet fields to appropriate symbols for easy access."
-  `(defmethod handle-packet ((connection Connection) (packet ,name))
+  `(defmethod handle-packet ((connection Connection)
+                             (packet ,#1=(intern (symbol-name name)
+                                                 (find-packet-package :server))))
      (flet
        ((respond (id &rest data)
-          ;; Sends data to client
-          )
-        (set-status (id &rest data)
-          ;; Updates connection status
-          )
-        (drop ()
-          ;; Drops connection immediately, aborts handler
-          )
+          (apply #'respond connection id data))
+        (set-status (new-status)
+          (setf (connection-status connection) new-status))
+        (drop (reason)
+          (terminate-connection connection reason))
         (client ()
-          ;; Returns instance of player who established this connection
-          ))
+          (connection-client connection)))
        (with-slots ,(mapcar #'slot-definition-name
-                      (class-direct-slots (find-class name)))
-           packet
+                      (class-direct-slots
+                        (find-class #1#)))
+         packet
          ,@body))))
 
 (defmethod handle-packet ((connection Connection) packet)
