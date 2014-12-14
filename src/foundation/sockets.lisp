@@ -34,7 +34,9 @@
                          :accessor connection-keep-alive-received-p)
    (last-keep-alive-id :accessor connection-last-keep-alive-id)
    (last-keep-alive-time :initform (get-universal-time)
-                         :accessor connection-last-keep-alive-time)))
+                         :accessor connection-last-keep-alive-time)
+   (client :initarg :client
+           :accessor connection-client)))
 
 (defmethod print-object ((object Connection) stream)
   (print-unreadable-object (object stream :type t :identity t)
