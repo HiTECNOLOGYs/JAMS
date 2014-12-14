@@ -389,6 +389,14 @@
   (call-next-method type (encode-number data (binary-type-size type)) stream))
 
 ;;; **************************************************************************
+;;;  Byte array
+;;; **************************************************************************
+
+(defclass Byte-array (Basic-type Binary-array) ())
+
+(define-binary-array Byte-array byte-array Var-Int u1)
+
+;;; **************************************************************************
 ;;;  Chunk bulk metadata
 ;;; **************************************************************************
 
