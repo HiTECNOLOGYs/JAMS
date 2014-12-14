@@ -1,40 +1,25 @@
 (in-package :jams)
 
-(defgeneric use (world entity target)
+(defgeneric use-object (world entity target)
   (:documentation "Called when entity uses world object."))
-(defgeneric attack (world entity target)
+
+(defgeneric attack-object (world entity target)
   (:documentation "Called when entity tries to punch another entity or world object."))
 
-(defgeneric right-mouse-button (world entity target))
-(defgeneric left-mouse-button (world entity target))
-
-(defgeneric move (world entity))
-
-
-(defgeneric spawn-entity (world entity))
-(defgeneric respawn-entity (world entity))
-
 (defmethod spawn-entity ((world World) (player Player))
-  (let* ((connection (player-connection player))
-         (spawn-point (get-spawn-point *world*)))
+  (with-slots (spawned? connection x y z yaw pitch on-ground?) player
     ;; TODO Send chunks here
     ;; TODO Send entities here
-    (send-packet 'spawn-position
-                 connection
-                 (getf spawn-point :x)
-                 (getf spawn-point :y)
-                 (getf spawn-point :z))
+    (respond connection 'jams.packets.client:spawn-position
+             :location (get-spawn-point *world*))
     ;; TDOD Send inventory here
-    (send-packet 'player-position-and-look
-                 connection
-                 (x player)
-                 (y player)
-                 (+ 2.0 (x player))
-                 (z player)
-                 (yaw player)
-                 (pitch player)
-                 t)
+    (respond connection 'jams.packets.client:player-position-and-look
+             :x x
+             :feet-y y
+             :z z
+             :yaw yaw
+             :pitch pitch
+             :on-ground? on-ground?)
     ;; TODO Receive look+position packet sent from client here
     ;;      in order to verify spawn position.
-    )
-  (setf (spawned-p player) t))
+    (setf spawned? t)))
